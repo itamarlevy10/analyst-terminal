@@ -9,7 +9,9 @@ from utils.data_manager import (
     add_financial_section, add_financial_row, add_period,
     update_financial_cell,
     get_avatar_info, format_timestamp, fetch_news_for_company,
-    parse_maya_pdf, import_financials_from_maya, classify_keyword,
+    classify_keyword,
+    add_scan_source, remove_scan_source, fetch_from_source_urls,
+    fetch_reddit_for_company,
     SOURCE_META, AVATAR_COLORS
 )
 from utils.excel_export import export_company_financials
@@ -326,6 +328,17 @@ hr {{ border-color: {divider} !important; margin: 10px 0 !important; }}
 .stat-num {{ font-size: 22px; font-weight: 700; color: {text_pri}; }}
 .stat-lbl {{ font-size: 11px; color: {text_muted}; margin-top: 2px; }}
 
+.feed-snippet {{
+    font-size: 12px;
+    color: {text_muted};
+    background: rgba(128,128,128,0.06);
+    padding: 6px 10px;
+    border-radius: 6px;
+    margin: 4px 0 2px 0;
+    border-right: 2px solid {accent_bdr};
+    line-height: 1.55;
+}}
+
 .company-avatar {{
     width: 42px; height: 42px;
     border-radius: 10px;
@@ -362,7 +375,7 @@ if "active_company_id" not in st.session_state:
     st.session_state.active_company_id = companies[0]["id"] if companies else None
 
 if "source_filters" not in st.session_state:
-    st.session_state.source_filters = {"linkedin", "google", "maya", "manual", "other"}
+    st.session_state.source_filters = {"google", "reddit", "maya", "manual", "other"}
 
 if "fin_edit_mode" not in st.session_state:
     st.session_state.fin_edit_mode = False
@@ -485,7 +498,7 @@ with tab_feed:
         st.markdown("##### פיד מידע")
 
         # Source filter toggles
-        src_cols = st.columns(5)
+        src_cols = st.columns(len(SOURCE_META))
         for si, (src_key, src_info) in enumerate(SOURCE_META.items()):
             with src_cols[si]:
                 active = src_key in st.session_state.source_filters
@@ -548,6 +561,9 @@ with tab_feed:
                     url = item.get("url", "")
                     title = item.get("title", "")
                     st.markdown(f"**[{title}]({url})**" if url else f"**{title}**")
+                    if item.get("snippet"):
+                        snip = item["snippet"][:220] + "…" if len(item["snippet"]) > 220 else item["snippet"]
+                        st.markdown(f"<div class='feed-snippet'>{snip}</div>", unsafe_allow_html=True)
                     if item.get("notes"):
                         st.caption(f"📝 {item['notes']}")
                     st.caption(format_timestamp(item.get("timestamp", "")))
@@ -565,12 +581,12 @@ with tab_feed:
         # Stats row
         feeds_all = company.get("feeds", [])
         s_go = sum(1 for f in feeds_all if f.get("source") == "google")
-        s_li = sum(1 for f in feeds_all if f.get("source") == "linkedin")
+        s_rd = sum(1 for f in feeds_all if f.get("source") == "reddit")
         s_ma = sum(1 for f in feeds_all if f.get("source") == "maya")
         s_mn = sum(1 for f in feeds_all if f.get("source") == "manual")
         sc1, sc2, sc3, sc4 = st.columns(4)
         with sc1: st.markdown(f"<div class='stat-mini'><div class='stat-num'>{s_go}</div><div class='stat-lbl'>Google</div></div>", unsafe_allow_html=True)
-        with sc2: st.markdown(f"<div class='stat-mini'><div class='stat-num'>{s_li}</div><div class='stat-lbl'>LinkedIn</div></div>", unsafe_allow_html=True)
+        with sc2: st.markdown(f"<div class='stat-mini'><div class='stat-num'>{s_rd}</div><div class='stat-lbl'>Reddit</div></div>", unsafe_allow_html=True)
         with sc3: st.markdown(f"<div class='stat-mini'><div class='stat-num'>{s_ma}</div><div class='stat-lbl'>מאיה</div></div>", unsafe_allow_html=True)
         with sc4: st.markdown(f"<div class='stat-mini'><div class='stat-num'>{s_mn}</div><div class='stat-lbl'>ידני</div></div>", unsafe_allow_html=True)
 
@@ -593,7 +609,7 @@ with tab_feed:
                 remainder = round(1.0 - sum(widths), 3)
                 if remainder > 0.01:
                     widths.append(remainder)
-                cols = st.columns(widths)
+                cols = st.columns(widths, vertical_alignment="center")
                 for j, kw in enumerate(row_kws):
                     cat = classify_keyword(kw)
                     with cols[j * 2]:
@@ -622,6 +638,54 @@ with tab_feed:
                 add_keyword(data, company["id"], new_kw.strip())
                 st.rerun()
 
+        # ── Sources to Scan Panel ──────────────────────────────
+        st.markdown("##### 🔗 מקורות לסריקה")
+
+        from urllib.parse import urlparse as _urlparse
+        scan_sources = company.get("scan_sources", [])
+        if scan_sources:
+            SRC_PER_ROW = 2
+            src_chip_w = round(0.80 / SRC_PER_ROW, 3)
+            src_del_w  = round(0.10 / SRC_PER_ROW, 3)
+            for row_start in range(0, len(scan_sources), SRC_PER_ROW):
+                row_srcs = scan_sources[row_start:row_start + SRC_PER_ROW]
+                n = len(row_srcs)
+                widths_s = []
+                for _ in range(n):
+                    widths_s.extend([src_chip_w, src_del_w])
+                remainder_s = round(1.0 - sum(widths_s), 3)
+                if remainder_s > 0.01:
+                    widths_s.append(remainder_s)
+                src_cols = st.columns(widths_s, vertical_alignment="center")
+                for j, src_url in enumerate(row_srcs):
+                    parsed = _urlparse(src_url)
+                    domain = (parsed.netloc or src_url).replace("www.", "")[:28]
+                    with src_cols[j * 2]:
+                        st.markdown(f"<span class='kw-teal-chip'>🔗 {domain}</span>", unsafe_allow_html=True)
+                    with src_cols[j * 2 + 1]:
+                        if st.button("✕", key=f"rmsrc_{company['id']}_{src_url}", help=f"הסר {src_url}"):
+                            remove_scan_source(data, company["id"], src_url)
+                            st.rerun()
+        else:
+            st.markdown(
+                "<div style='text-align:center;padding:10px 8px;opacity:0.4'>"
+                "<span style='font-size:12px'>הוסף קישורי RSS או אתרים לסריקה אוטומטית</span>"
+                "</div>",
+                unsafe_allow_html=True,
+            )
+
+        with st.form("add_src_form", clear_on_submit=True):
+            src_inp_col, src_btn_col = st.columns([0.72, 0.28])
+            with src_inp_col:
+                new_src_url = st.text_input("src", placeholder="https://calcalist.co.il/rss", label_visibility="collapsed")
+            with src_btn_col:
+                src_ok = st.form_submit_button("+ הוסף", use_container_width=True)
+            if src_ok and new_src_url.strip():
+                add_scan_source(data, company["id"], new_src_url.strip())
+                st.rerun()
+
+        st.divider()
+
         # Last scan info
         last_scan_ts = st.session_state.last_scan_times.get(company["id"])
         if last_scan_ts:
@@ -638,19 +702,36 @@ with tab_feed:
         with scan_col:
             if st.button("🔄 סרוק עכשיו", key="refresh_news", use_container_width=True, type="primary"):
                 with st.spinner("סורק חדשות..."):
-                    new_items = fetch_news_for_company(company, max_age_days=_age_days)
+                    new_items    = fetch_news_for_company(company, max_age_days=_age_days)
+                    reddit_items = fetch_reddit_for_company(company, max_age_days=_age_days)
+                    custom_items = fetch_from_source_urls(company, max_age_days=_age_days)
                 existing_titles = {f.get("title", "") for f in company.get("feeds", [])}
-                added = sum(
-                    1 for ni in new_items
-                    if ni["title"] not in existing_titles
-                    and not add_feed_item(data, company["id"], "google", ni["title"], ni["url"], timestamp=ni["timestamp"]) is None
-                )
+                added = 0
+                for ni in new_items:
+                    if ni["title"] not in existing_titles:
+                        add_feed_item(data, company["id"], "google", ni["title"], ni["url"],
+                                      timestamp=ni["timestamp"], snippet=ni.get("snippet", ""))
+                        existing_titles.add(ni["title"])
+                        added += 1
+                for ni in reddit_items:
+                    if ni["title"] not in existing_titles:
+                        sub = ni.get("subreddit", "")
+                        add_feed_item(data, company["id"], "reddit", ni["title"], ni["url"],
+                                      notes=f"r/{sub}" if sub else "",
+                                      timestamp=ni["timestamp"], snippet=ni.get("snippet", ""))
+                        existing_titles.add(ni["title"])
+                        added += 1
+                for ni in custom_items:
+                    if ni["title"] not in existing_titles:
+                        add_feed_item(data, company["id"], "other", ni["title"], ni["url"],
+                                      notes=ni.get("source_domain", ""),
+                                      timestamp=ni["timestamp"], snippet=ni.get("snippet", ""))
+                        existing_titles.add(ni["title"])
+                        added += 1
                 st.session_state.last_scan_times[company["id"]] = datetime.now().isoformat()
                 msg = f"נמצאו {added} פריטים חדשים ✓" if added > 0 else "אין פריטים חדשים"
                 st.toast(msg)
                 st.rerun()
-
-        st.divider()
 
         # ── Manual add form ────────────────────────────────────
         st.markdown("##### ➕ הוסף פריט ידני")
@@ -676,35 +757,89 @@ with tab_fin:
     sections = fin.get("sections", [])
     maya_imported = fin.get("maya_imported", False)
 
-    # ── Maya PDF import (always shown at top) ─────────────────
+    # ── Maya PDF import via Claude API ────────────────────────
     with st.expander("📥 ייבוא דוח מאיה (PDF)", expanded=not maya_imported):
-        st.markdown("העלה קובץ PDF של דוח כספי מאתר מאיה — המערכת תחלץ את הנתונים ותמלא את הטבלה.")
-        uploaded = st.file_uploader("בחר קובץ PDF", type=["pdf"], key="maya_upload")
-        if uploaded:
-            pdf_bytes = uploaded.read()
-            with st.spinner("מחלץ נתונים מה-PDF..."):
-                result = parse_maya_pdf(pdf_bytes)
+        st.markdown("העלה דוח כספי PDF מאתר מאיה — Claude יקרא אותו ויוסיף עמודה חדשה לטבלה.")
 
-            if result is None:
-                st.error("לא ניתן היה לחלץ נתונים מהקובץ. ודא שמדובר ב-PDF דיגיטלי (לא סרוק).")
-            else:
-                parsed_sections, parsed_periods = result
-                st.success(f"זוהו {len(parsed_sections)} סעיפים ו-{len(parsed_periods)} עמודות תקופה.")
+        from utils.pdf_extractor import extract_financials_from_pdf
 
-                # Preview
-                for psec in parsed_sections[:2]:
-                    st.markdown(f"**{psec['name']}** ({len(psec['rows'])} שורות)")
-                    preview_rows = [{**{"סעיף": r["label"]},
-                                     **{parsed_periods[i]: f"{v:,.0f}" for i, v in enumerate(r["values"][:4])}}
-                                    for r in psec["rows"][:4]]
-                    if preview_rows:
-                        st.dataframe(pd.DataFrame(preview_rows), hide_index=True, use_container_width=True)
+        imp_col1, imp_col2 = st.columns([0.6, 0.4])
+        with imp_col1:
+            period_name_input = st.text_input(
+                "שם התקופה",
+                placeholder="לדוגמה: Q2-26",
+                key="pdf_period_name",
+            )
+        with imp_col2:
+            uploaded_pdf = st.file_uploader("בחר קובץ PDF", type=["pdf"], key="maya_upload")
 
-                if st.button("✅ אישור — ייבא לחברה", type="primary", key="do_import"):
-                    import_financials_from_maya(data, company["id"], parsed_sections, parsed_periods)
+        do_import = st.button(
+            "🤖 ייבא עם Claude",
+            type="primary",
+            key="do_pdf_import",
+            disabled=not (period_name_input or "").strip() or uploaded_pdf is None,
+        )
+
+        if do_import and period_name_input.strip() and uploaded_pdf:
+            with st.spinner("Claude קורא את הדוח... (10–20 שניות)"):
+                try:
+                    api_key = st.secrets["ANTHROPIC_API_KEY"]
+                    pdf_bytes_claude = uploaded_pdf.read()
+                    extracted = extract_financials_from_pdf(
+                        pdf_bytes_claude, period_name_input.strip(), api_key
+                    )
+
+                    inc = extracted.get("income_statement", {})
+                    bal = extracted.get("balance_sheet", {})
+                    kpi = extracted.get("kpis", {})
+
+                    # Map to exact row labels from companies.json
+                    label_map = {
+                        "רווח והפסד": {
+                            "הכנסות":                  inc.get("revenue"),
+                            "עלות המכר":               inc.get("cost_of_sales"),
+                            "רווח גולמי":              inc.get("gross_profit"),
+                            'הוצאות מו"פ':             inc.get("rd_expenses"),
+                            "הוצאות מכירה והנהלה":     inc.get("selling_and_admin_expenses"),
+                            "רווח תפעולי":             inc.get("operating_profit"),
+                            "רווח לפני מס":            inc.get("profit_before_tax"),
+                            "רווח נקי":                inc.get("net_profit"),
+                        },
+                        "מדדים תפעוליים": {
+                            "צבר הזמנות":    kpi.get("order_backlog"),
+                            "לקוחות פעילים": kpi.get("active_customers"),
+                            "רכוש קבוע":     bal.get("fixed_assets"),
+                        },
+                    }
+
+                    # Add new period column (appends 0 to all rows)
+                    add_period(data, company["id"], period_name_input.strip())
+                    company = get_company(data, company["id"])
+                    new_period_idx = len(company["financials"]["periods"]) - 1
+
+                    # Fill in values — direct edit to avoid N disk writes
+                    filled = 0
+                    for comp_obj in data["companies"]:
+                        if comp_obj["id"] != company["id"]:
+                            continue
+                        for sec in comp_obj["financials"]["sections"]:
+                            sec_map = label_map.get(sec["name"], {})
+                            for row in sec["rows"]:
+                                val = sec_map.get(row["label"])
+                                if val is not None:
+                                    row["values"][new_period_idx] = val
+                                    filled += 1
+                        break
+                    save_data(data)
                     st.session_state.data = load_data()
-                    st.success("הנתונים יובאו בהצלחה!")
+
+                    st.success(f"✅ {period_name_input.strip()} יובא בהצלחה — {filled} שדות אוכלסו. בדוק את הטבלה למטה.")
                     st.rerun()
+
+                except KeyError:
+                    st.error("מפתח ANTHROPIC_API_KEY חסר ב-`.streamlit/secrets.toml`.")
+                except Exception as _e:
+                    st.error(f"שגיאה: {_e}")
 
     # ── No data state ─────────────────────────────────────────
     if not maya_imported or not sections:
