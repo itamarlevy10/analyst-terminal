@@ -9,8 +9,8 @@ DATA_FILE = Path(__file__).parent.parent / "data" / "companies.json"
 DEFAULT_FILE = Path(__file__).parent.parent / "data" / "default_data.json"
 
 SOURCE_META = {
-    "linkedin":  {"label": "LinkedIn",  "color": "#1A5FA8", "bg": "#E6F0FA", "icon": "🔵"},
     "google":    {"label": "Google",    "color": "#B05E0D", "bg": "#FDF3E0", "icon": "🟠"},
+    "reddit":    {"label": "Reddit",    "color": "#C0390A", "bg": "#FFF0EC", "icon": "🔴"},
     "maya":      {"label": "מאיה",      "color": "#4A3DAA", "bg": "#F0EDF9", "icon": "🟣"},
     "manual":    {"label": "ידני",      "color": "#2A6B24", "bg": "#EAF4E8", "icon": "✏️"},
     "other":     {"label": "אחר",       "color": "#555",    "bg": "#F2F2F2", "icon": "⚪"},
@@ -81,13 +81,14 @@ def delete_company(data: dict, company_id: str):
     save_data(data)
 
 
-def add_feed_item(data: dict, company_id: str, source: str, title: str, url: str = "", notes: str = "", timestamp: str | None = None) -> dict:
+def add_feed_item(data: dict, company_id: str, source: str, title: str, url: str = "", notes: str = "", timestamp: str | None = None, snippet: str = "") -> dict:
     item = {
         "id": str(uuid.uuid4())[:8],
         "source": source,
         "title": title,
         "url": url,
         "notes": notes,
+        "snippet": snippet,
         "timestamp": timestamp or datetime.now().isoformat(),
     }
     for c in data["companies"]:
@@ -191,85 +192,155 @@ def classify_keyword(kw: str) -> str:
 
 def parse_maya_pdf(pdf_bytes: bytes) -> tuple[list, list] | None:
     """
-    Extract financial tables from a Maya PDF report (digital, not scanned).
+    Extract financial tables from a Maya PDF (digital, not scanned).
     Returns (sections, periods) or None on failure.
-    - sections: list matching the financials["sections"] schema
-    - periods: list of detected column header strings
+    Tries two strategies: PDF table extraction, then word-position row reconstruction.
     """
     try:
         import pdfplumber
         import io
         import re
+        from collections import defaultdict, Counter
     except ImportError:
         return None
 
-    HEBREW = re.compile(r'[֐-׿]')
-    PERIOD_PAT = re.compile(r'\d{4}|Q[1-4]|H[12]|רבעון|מחצית|שנת')
+    HEB = re.compile(r'[א-תיִ-פֿ]')
+    NUM_PAT   = re.compile(r'^-?[\d,]+\.?\d*$')
+    PAREN_PAT = re.compile(r'^\([\d,]+\.?\d*\)$')
+    PERIOD_PAT = re.compile(
+        r'\d{1,2}\s+ב(?:ינואר|פברואר|מרץ|אפריל|מאי|יוני|יולי|אוגוסט|ספטמבר|אוקטובר|נובמבר|דצמבר)\s+\d{4}'
+        r'|(?:Q|H)[1-4]\s*\d{4}'
+        r'|\b\d{4}\b'
+        r'|רבעון|מחצית|שנת'
+    )
 
-    def _to_float(s: str) -> float | None:
-        s = str(s).strip().replace(",", "").replace(" ", "").replace("\xa0", "")
-        s = s.replace("(", "-").replace(")", "")
+    def _float(s: str) -> float | None:
+        s = str(s).strip().replace(",", "").replace("\xa0", "").replace(" ", "")
+        if PAREN_PAT.match(s):
+            s = "-" + s[1:-1]
         try:
             return float(s)
         except ValueError:
             return None
 
-    # Collect all (section_name, label, [values]) tuples
-    rows_collected: list[tuple[str, str, list[float]]] = []
+    def _is_num(s: str) -> bool:
+        return NUM_PAT.match(s) is not None or PAREN_PAT.match(s) is not None
+
+    rows_collected: list[tuple[str, str, list]] = []
     detected_periods: list[str] = []
     current_section = "נתונים כספיים"
 
+    # ── Strategy 1: PDF table extraction ──────────────────────────
     with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
         for page in pdf.pages:
             for table in (page.extract_tables() or []):
                 if not table:
                     continue
-
-                # Detect header row (contains period labels)
                 first = [str(c or "").strip() for c in table[0]]
-                potential_hdr = [c for c in first[1:] if c and PERIOD_PAT.search(c)]
-                if len(potential_hdr) >= 1 and not detected_periods:
+                hdr_candidates = [c for c in first[1:] if c and PERIOD_PAT.search(c)]
+                if hdr_candidates and not detected_periods:
                     detected_periods = [c for c in first[1:] if c]
                     data_rows = table[1:]
                 else:
                     data_rows = table
-
                 for row in data_rows:
-                    cells = [str(c or "").strip() for c in row]
-                    cells = [c.replace("\n", " ") for c in cells]
-
-                    # Find Hebrew label (first cell with Hebrew)
-                    label = next((c for c in cells if HEBREW.search(c) and len(c) > 1), None)
+                    cells = [str(c or "").strip().replace("\n", " ") for c in row]
+                    label = next((c for c in cells if HEB.search(c) and len(c) > 1), None)
                     if not label:
                         continue
-
-                    # Check if this looks like a section header (few/no numbers)
-                    nums = [_to_float(c) for c in cells if _to_float(c) is not None]
+                    nums = [v for v in (_float(c) for c in cells) if v is not None]
                     if not nums:
                         current_section = label
                         continue
-
                     rows_collected.append((current_section, label, nums))
+
+    # ── Strategy 2: word-position row reconstruction ──────────────
+    if not rows_collected:
+        current_section = "נתונים כספיים"
+        with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+            for page in pdf.pages:
+                words = page.extract_words(
+                    x_tolerance=5, y_tolerance=4,
+                    keep_blank_chars=False, use_text_flow=False,
+                )
+                if not words:
+                    continue
+                y_rows: dict = defaultdict(list)
+                for w in words:
+                    bucket = round(w["top"] / 5) * 5
+                    y_rows[bucket].append(w)
+
+                for bucket in sorted(y_rows.keys()):
+                    row_words = sorted(y_rows[bucket], key=lambda w: w["x0"])
+                    texts = [w["text"].strip() for w in row_words if w["text"].strip()]
+                    if not texts:
+                        continue
+
+                    # Detect period header (2+ period tokens, no Hebrew)
+                    if not detected_periods:
+                        period_hits = [t for t in texts if PERIOD_PAT.search(t) and not HEB.search(t)]
+                        if len(period_hits) >= 2:
+                            detected_periods = texts
+                            continue
+
+                    heb_parts = [t for t in texts if HEB.search(t)]
+                    num_parts = [t for t in texts if _is_num(t)]
+
+                    if not heb_parts:
+                        continue
+                    label = " ".join(heb_parts)
+                    if not num_parts:
+                        if len(label) > 2:
+                            current_section = label
+                        continue
+                    nums = [v for v in (_float(t) for t in num_parts) if v is not None]
+                    if nums:
+                        rows_collected.append((current_section, label, nums))
+
+    # ── Strategy 3: line-by-line text parsing ─────────────────────
+    if not rows_collected:
+        current_section = "נתונים כספיים"
+        with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+            for page in pdf.pages:
+                text = page.extract_text(x_tolerance=3, y_tolerance=3) or ""
+                for line in text.splitlines():
+                    line = line.strip()
+                    if not line:
+                        continue
+                    tokens = line.split()
+                    heb_parts = [t for t in tokens if HEB.search(t)]
+                    num_parts = [t for t in tokens if _is_num(t)]
+                    if not heb_parts:
+                        # Check if period header line
+                        if not detected_periods:
+                            period_hits = [t for t in tokens if PERIOD_PAT.search(t)]
+                            if len(period_hits) >= 2:
+                                detected_periods = period_hits
+                        continue
+                    label = " ".join(heb_parts)
+                    if not num_parts:
+                        if len(label) > 2:
+                            current_section = label
+                        continue
+                    nums = [v for v in (_float(t) for t in num_parts) if v is not None]
+                    if nums:
+                        rows_collected.append((current_section, label, nums))
 
     if not rows_collected:
         return None
 
-    # Determine column count from most common row width
-    from collections import Counter
+    # ── Build output ───────────────────────────────────────────────
     widths = Counter(len(r[2]) for r in rows_collected)
     target_width = widths.most_common(1)[0][0]
 
-    # Build periods list
     if detected_periods:
-        periods = detected_periods[:target_width]
+        periods = [p for p in detected_periods if p][:target_width]
         while len(periods) < target_width:
             periods.append(f"עמודה {len(periods)+1}")
     else:
         periods = [f"עמודה {i+1}" for i in range(target_width)]
 
-    # Group rows by section
-    from collections import defaultdict
-    by_section: dict[str, list] = defaultdict(list)
+    by_section: dict = defaultdict(list)
     for sec, lbl, vals in rows_collected:
         padded = (vals + [0] * target_width)[:target_width]
         by_section[sec].append({"label": lbl, "values": padded})
@@ -338,10 +409,168 @@ def fetch_news_for_company(company: dict, max_age_days: int | None = 7) -> list:
                     ts = ts_dt.isoformat()
                 else:
                     ts = datetime.now().isoformat()
+                import re as _re
+                raw_summary = entry.get("summary", "") or entry.get("description", "")
+                snippet = _re.sub(r'<[^>]+>', '', raw_summary).strip()[:300] if raw_summary else ""
                 items.append({
                     "title": title,
                     "url": entry.get("link", ""),
                     "timestamp": ts,
+                    "snippet": snippet,
+                })
+        except Exception:
+            continue
+
+    items.sort(key=lambda x: x["timestamp"], reverse=True)
+    return items[:15]
+
+
+def add_scan_source(data: dict, company_id: str, url: str):
+    for c in data["companies"]:
+        if c["id"] == company_id:
+            sources = c.setdefault("scan_sources", [])
+            if url not in sources:
+                sources.append(url)
+            break
+    save_data(data)
+
+
+def remove_scan_source(data: dict, company_id: str, url: str):
+    for c in data["companies"]:
+        if c["id"] == company_id:
+            c["scan_sources"] = [u for u in c.get("scan_sources", []) if u != url]
+            break
+    save_data(data)
+
+
+def fetch_reddit_for_company(company: dict, max_age_days: int | None = 7) -> list:
+    try:
+        import requests
+        import feedparser
+        import re
+        import time
+    except ImportError:
+        return []
+
+    keywords = company.get("keywords", [])
+    if not keywords:
+        return []
+
+    _t_map = {1: "day", 7: "week", 30: "month"}
+    t_param = _t_map.get(max_age_days, "year") if max_age_days else "all"
+    cutoff = datetime.now() - timedelta(days=max_age_days) if max_age_days else None
+
+    session = requests.Session()
+    session.headers.update({
+        "User-Agent": (
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/120.0.0.0 Safari/537.36"
+        )
+    })
+
+    seen_titles: set[str] = set()
+    items = []
+
+    # Limit to first 3 keywords; wrap in quotes for exact-phrase matching
+    for keyword in keywords[:3]:
+        q = f'"{keyword}"'
+        url = (
+            f"https://www.reddit.com/search.rss"
+            f"?q={quote(q)}&sort=new&t={t_param}&limit=25"
+        )
+        for attempt in range(2):
+            try:
+                resp = session.get(url, timeout=12)
+                if resp.status_code == 429:
+                    time.sleep(4)
+                    continue
+                if not resp.ok:
+                    break
+                feed = feedparser.parse(resp.content)
+                for entry in feed.entries:
+                    title = entry.get("title", "").strip()
+                    if not title or title in seen_titles:
+                        continue
+                    seen_titles.add(title)
+
+                    published = entry.get("published_parsed")
+                    if published:
+                        import calendar
+                        ts_dt = datetime.fromtimestamp(calendar.timegm(published))
+                        if cutoff and ts_dt < cutoff:
+                            continue
+                        ts = ts_dt.isoformat()
+                    else:
+                        ts = datetime.now().isoformat()
+
+                    subreddit = ""
+                    if entry.get("tags"):
+                        subreddit = entry["tags"][0].get("term", "").strip()
+
+                    raw_body = entry.get("summary", "")
+                    body = re.sub(r"<[^>]+>", " ", raw_body).strip()
+                    body = re.sub(r"\s+", " ", body)[:300]
+                    snippet = body if body else f"r/{subreddit}"
+
+                    items.append({
+                        "title": title,
+                        "url": entry.get("link", ""),
+                        "timestamp": ts,
+                        "snippet": snippet,
+                        "subreddit": subreddit,
+                    })
+                break
+            except Exception:
+                pass
+        time.sleep(2)
+
+    items.sort(key=lambda x: x["timestamp"], reverse=True)
+    return items[:20]
+
+
+def fetch_from_source_urls(company: dict, max_age_days: int | None = 7) -> list:
+    try:
+        import feedparser
+        import re
+        import calendar
+        from urllib.parse import urlparse
+    except ImportError:
+        return []
+
+    scan_sources = company.get("scan_sources", [])
+    if not scan_sources:
+        return []
+
+    cutoff = datetime.now() - timedelta(days=max_age_days) if max_age_days else None
+    seen_titles: set[str] = set()
+    items = []
+
+    for source_url in scan_sources:
+        try:
+            feed = feedparser.parse(source_url)
+            domain = urlparse(source_url).netloc.replace("www.", "") or source_url[:30]
+            for entry in feed.entries:
+                title = entry.get("title", "").strip()
+                if not title or title in seen_titles:
+                    continue
+                seen_titles.add(title)
+                published = entry.get("published_parsed")
+                if published:
+                    ts_dt = datetime.fromtimestamp(calendar.timegm(published))
+                    if cutoff and ts_dt < cutoff:
+                        continue
+                    ts = ts_dt.isoformat()
+                else:
+                    ts = datetime.now().isoformat()
+                raw_summary = entry.get("summary", "") or entry.get("description", "")
+                snippet = re.sub(r'<[^>]+>', '', raw_summary).strip()[:300] if raw_summary else ""
+                items.append({
+                    "title": title,
+                    "url": entry.get("link", ""),
+                    "timestamp": ts,
+                    "snippet": snippet,
+                    "source_domain": domain,
                 })
         except Exception:
             continue

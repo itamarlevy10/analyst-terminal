@@ -9,6 +9,7 @@
         "Anduril", "Uvision", "Blue UAS", "DAWG drone", "NDAA drone"
       ],
       "feeds": [],
+      "scan_sources": [],
       "financials": {
         "periods": ["2025 שנתי", "Q1 2025", "Q1 2026"],
         "maya_imported": true,

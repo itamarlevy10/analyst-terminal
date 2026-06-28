@@ -116,13 +116,13 @@ input, textarea {{
     text-align: right !important;
     direction: rtl !important;
 }}
-/* Dataframe cells — centered */
+/* Dataframe — numbers centered, label column (last) right-aligned for RTL */
 [data-testid="stDataFrame"] td,
 [data-testid="stDataFrame"] th {{
     text-align: center !important;
 }}
-[data-testid="stDataFrame"] td:first-child,
-[data-testid="stDataFrame"] th:first-child {{
+[data-testid="stDataFrame"] td:last-child,
+[data-testid="stDataFrame"] th:last-child {{
     text-align: right !important;
 }}
 
@@ -361,7 +361,7 @@ hr {{ border-color: {divider} !important; margin: 10px 0 !important; }}
 
 # ── Session state ─────────────────────────────────────────────
 if "dark_mode" not in st.session_state:
-    st.session_state.dark_mode = True
+    st.session_state.dark_mode = False
 
 
 st.markdown(_get_css(st.session_state.dark_mode), unsafe_allow_html=True)
@@ -906,14 +906,15 @@ with tab_fin:
                     row_dict[period] = row["values"][pi] if pi < len(row["values"]) else 0
                 rows_data.append(row_dict)
 
-            df_edit = pd.DataFrame(rows_data)
+            rtl_cols_edit = periods + ["סעיף"]
+            df_edit = pd.DataFrame(rows_data)[rtl_cols_edit]
             edited = st.data_editor(
                 df_edit,
                 key=f"editor_{company['id']}_{sec_idx}",
                 use_container_width=True,
                 hide_index=True,
                 num_rows="fixed",
-                column_config={"סעיף": st.column_config.TextColumn("סעיף", width="medium")}
+                column_config={"סעיף": st.column_config.TextColumn("סעיף", width="medium", disabled=True)}
             )
             for ri, row in edited.iterrows():
                 for pi, period in enumerate(periods):
@@ -945,7 +946,9 @@ with tab_fin:
                 total_dict[period] = f"{val:,.0f}" if isinstance(val, (int, float)) else val
             rows_data.append(total_dict)
 
-            st.dataframe(pd.DataFrame(rows_data), use_container_width=True, hide_index=True)
+            # RTL layout: periods on left, label on right
+            rtl_cols = periods + ["סעיף"]
+            st.dataframe(pd.DataFrame(rows_data)[rtl_cols], use_container_width=True, hide_index=True)
 
         st.markdown("")
 
@@ -970,7 +973,8 @@ with tab_fin:
         if comp_rows:
             st.divider()
             st.markdown(f"##### שינויים: {p_prev} → {p_curr}")
-            st.dataframe(pd.DataFrame(comp_rows), use_container_width=True, hide_index=True)
+            comp_cols = [p_prev, p_curr, "שינוי", "% שינוי", "סעיף"]
+            st.dataframe(pd.DataFrame(comp_rows)[comp_cols], use_container_width=True, hide_index=True)
 
     # ── Add section / period (edit mode) ──────────────────────
     if st.session_state.fin_edit_mode:
