@@ -761,7 +761,11 @@ with tab_fin:
     with st.expander("📥 ייבוא דוח מאיה (PDF)", expanded=not maya_imported):
         st.markdown("העלה דוח כספי PDF מאתר מאיה — Claude יקרא אותו ויוסיף עמודה חדשה לטבלה.")
 
-        from utils.pdf_extractor import extract_financials_from_pdf
+        from utils.pdf_extractor import (
+            extract_financials_from_pdf,
+            financials_to_sections,
+            check_for_duplicates,
+        )
 
         imp_col1, imp_col2 = st.columns([0.6, 0.4])
         with imp_col1:
@@ -781,65 +785,58 @@ with tab_fin:
         )
 
         if do_import and period_name_input.strip() and uploaded_pdf:
-            with st.spinner("Claude קורא את הדוח... (10–20 שניות)"):
-                try:
-                    api_key = st.secrets["ANTHROPIC_API_KEY"]
-                    pdf_bytes_claude = uploaded_pdf.read()
-                    extracted = extract_financials_from_pdf(
-                        pdf_bytes_claude, period_name_input.strip(), api_key
-                    )
+            _period = period_name_input.strip()
 
-                    inc = extracted.get("income_statement", {})
-                    bal = extracted.get("balance_sheet", {})
-                    kpi = extracted.get("kpis", {})
+            # ── Duplicate detection ────────────────────────────
+            dup = check_for_duplicates(company, _period)
+            _can_proceed = True
 
-                    # Map to exact row labels from companies.json
-                    label_map = {
-                        "רווח והפסד": {
-                            "הכנסות":                  inc.get("revenue"),
-                            "עלות המכר":               inc.get("cost_of_sales"),
-                            "רווח גולמי":              inc.get("gross_profit"),
-                            'הוצאות מו"פ':             inc.get("rd_expenses"),
-                            "הוצאות מכירה והנהלה":     inc.get("selling_and_admin_expenses"),
-                            "רווח תפעולי":             inc.get("operating_profit"),
-                            "רווח לפני מס":            inc.get("profit_before_tax"),
-                            "רווח נקי":                inc.get("net_profit"),
-                        },
-                        "מדדים תפעוליים": {
-                            "צבר הזמנות":    kpi.get("order_backlog"),
-                            "לקוחות פעילים": kpi.get("active_customers"),
-                            "רכוש קבוע":     bal.get("fixed_assets"),
-                        },
-                    }
+            if dup["recommendation"] == "duplicate":
+                st.error(f"⚠️ התקופה '{_period}' כבר קיימת בטבלה. לא יובאו נתונים.")
+                _can_proceed = False
+            elif dup["recommendation"] == "possible_duplicate":
+                similar = ", ".join(dup["similar_matches"])
+                st.warning(f"⚠️ נמצאה תקופה דומה: **{similar}**. רוצה להוסיף '{_period}' בנפרד?")
+                if not st.checkbox("כן, הוסף בכל זאת", key="confirm_dup"):
+                    _can_proceed = False
 
-                    # Add new period column (appends 0 to all rows)
-                    add_period(data, company["id"], period_name_input.strip())
-                    company = get_company(data, company["id"])
-                    new_period_idx = len(company["financials"]["periods"]) - 1
+            if _can_proceed:
+                with st.spinner("Claude קורא את הדוח... (10–20 שניות)"):
+                    try:
+                        api_key = st.secrets["ANTHROPIC_API_KEY"]
+                        pdf_bytes_claude = uploaded_pdf.read()
+                        extracted = extract_financials_from_pdf(pdf_bytes_claude, _period, api_key)
+                        mapped = financials_to_sections(extracted)
+                        label_map = mapped["sections"]
 
-                    # Fill in values — direct edit to avoid N disk writes
-                    filled = 0
-                    for comp_obj in data["companies"]:
-                        if comp_obj["id"] != company["id"]:
-                            continue
-                        for sec in comp_obj["financials"]["sections"]:
-                            sec_map = label_map.get(sec["name"], {})
-                            for row in sec["rows"]:
-                                val = sec_map.get(row["label"])
-                                if val is not None:
-                                    row["values"][new_period_idx] = val
-                                    filled += 1
-                        break
-                    save_data(data)
-                    st.session_state.data = load_data()
+                        # Add new period column (appends 0 to all rows)
+                        add_period(data, company["id"], _period)
+                        company = get_company(data, company["id"])
+                        new_period_idx = len(company["financials"]["periods"]) - 1
 
-                    st.success(f"✅ {period_name_input.strip()} יובא בהצלחה — {filled} שדות אוכלסו. בדוק את הטבלה למטה.")
-                    st.rerun()
+                        # Fill in values — direct edit, single save
+                        filled = 0
+                        for comp_obj in data["companies"]:
+                            if comp_obj["id"] != company["id"]:
+                                continue
+                            for sec in comp_obj["financials"]["sections"]:
+                                sec_map = label_map.get(sec["name"], {})
+                                for row in sec["rows"]:
+                                    val = sec_map.get(row["label"])
+                                    if val is not None:
+                                        row["values"][new_period_idx] = val
+                                        filled += 1
+                            break
+                        save_data(data)
+                        st.session_state.data = load_data()
 
-                except KeyError:
-                    st.error("מפתח ANTHROPIC_API_KEY חסר ב-`.streamlit/secrets.toml`.")
-                except Exception as _e:
-                    st.error(f"שגיאה: {_e}")
+                        st.success(f"✅ {_period} יובא בהצלחה — {filled} שדות אוכלסו.")
+                        st.rerun()
+
+                    except KeyError:
+                        st.error("מפתח ANTHROPIC_API_KEY חסר ב-`.streamlit/secrets.toml`.")
+                    except Exception as _e:
+                        st.error(f"שגיאה: {_e}")
 
     # ── No data state ─────────────────────────────────────────
     if not maya_imported or not sections:
