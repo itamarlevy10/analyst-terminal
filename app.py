@@ -9,6 +9,7 @@ from utils.data_manager import (
     add_financial_section, add_financial_row, add_period,
     update_financial_cell,
     get_avatar_info, format_timestamp, fetch_news_for_company,
+    parse_maya_pdf, import_financials_from_maya, classify_keyword,
     SOURCE_META, AVATAR_COLORS
 )
 from utils.excel_export import export_company_financials
@@ -21,106 +22,336 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ── Custom CSS ────────────────────────────────────────────────
-st.markdown("""
+# ── Theme CSS ─────────────────────────────────────────────────
+def _get_css(dark: bool) -> str:
+    if dark:
+        bg         = "#0D1421"
+        bg_sidebar = "#0F1629"
+        bg_card    = "#131E30"
+        bg_input   = "rgba(255,255,255,0.04)"
+        bg_stat    = "rgba(255,255,255,0.04)"
+        bg_tab_bar = "#0F1E33"
+        bg_tab_sel = "#1A2F4A"
+        border     = "rgba(255,255,255,0.07)"
+        border_str = "rgba(255,255,255,0.12)"
+        text_pri   = "#FFFFFF"
+        text_sec   = "#B7C2D2"
+        text_muted = "#7A8AA0"
+        accent     = "#7C6FE8"
+        accent_bg  = "rgba(124,111,232,0.14)"
+        accent_bdr = "rgba(124,111,232,0.3)"
+        kw_color   = "#A89EEE"
+        kw_blue    = "#60A5FA"
+        kw_purple  = "#A78BFA"
+        kw_teal    = "#2DD4BF"
+        kw_amber   = "#FBB040"
+        btn_sec_bg = "rgba(255,255,255,0.04)"
+        btn_sec_c  = "#B7C2D2"
+        btn_sec_bd = "rgba(255,255,255,0.1)"
+        btn_sec_hb = "rgba(255,255,255,0.08)"
+        btn_sec_hc = "#FFFFFF"
+        btn_sec_hd = "rgba(255,255,255,0.2)"
+        divider    = "rgba(255,255,255,0.07)"
+        fin_head   = "rgba(124,111,232,0.14)"
+        fin_headc  = "#A89EEE"
+        fin_total  = "rgba(124,111,232,0.26)"
+    else:
+        bg         = "#F8F9FB"
+        bg_sidebar = "#FFFFFF"
+        bg_card    = "#FFFFFF"
+        bg_input   = "#FFFFFF"
+        bg_stat    = "#F7F7F8"
+        bg_tab_bar = "#EEEDF8"
+        bg_tab_sel = "#FFFFFF"
+        border     = "#E5E9EF"
+        border_str = "#CDD5DF"
+        text_pri   = "#0A1628"
+        text_sec   = "#374151"
+        text_muted = "#6B7A8D"
+        accent     = "#5349C8"
+        accent_bg  = "#F0EDF9"
+        accent_bdr = "#C8C3ED"
+        kw_color   = "#4A3DAA"
+        kw_blue    = "#1D4ED8"
+        kw_purple  = "#6D28D9"
+        kw_teal    = "#0F766E"
+        kw_amber   = "#B45309"
+        btn_sec_bg = "#FFFFFF"
+        btn_sec_c  = "#374151"
+        btn_sec_bd = "#D0D7E2"
+        btn_sec_hb = "#F8F9FB"
+        btn_sec_hc = "#0A1628"
+        btn_sec_hd = "#9AA8B4"
+        divider    = "#EBEBEB"
+        fin_head   = "#EEEDFE"
+        fin_headc  = "#5349C8"
+        fin_total  = "#D6D3F5"
+
+    return f"""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Heebo:wght@400;500;700&display=swap');
 
-html, body, [class*="css"] { direction: rtl; font-family: 'Heebo', sans-serif; }
+/* ── Global RTL ── */
+html, body, [class*="css"],
+.stApp, .main, .block-container,
+[data-testid="stSidebar"],
+[data-testid="stVerticalBlock"],
+[data-testid="stHorizontalBlock"],
+[data-testid="stMarkdownContainer"],
+[data-testid="stCaptionContainer"] {{
+    direction: rtl !important;
+    font-family: 'Heebo', 'Inter', sans-serif !important;
+    -webkit-font-smoothing: antialiased;
+}}
+/* Text-only elements — right-aligned */
+p, h1, h2, h3, h4, h5, h6, label, span,
+[data-testid="stMarkdownContainer"] p,
+[data-testid="stCaptionContainer"] p {{
+    text-align: right !important;
+    direction: rtl !important;
+}}
+input, textarea {{
+    text-align: right !important;
+    direction: rtl !important;
+}}
+/* Dataframe cells — centered */
+[data-testid="stDataFrame"] td,
+[data-testid="stDataFrame"] th {{
+    text-align: center !important;
+}}
+[data-testid="stDataFrame"] td:first-child,
+[data-testid="stDataFrame"] th:first-child {{
+    text-align: right !important;
+}}
 
-/* Sidebar */
-[data-testid="stSidebar"] { background: #FAFAFA; border-left: 1px solid #EBEBEB; }
-[data-testid="stSidebar"] .block-container { padding: 1rem; }
+/* ── Hide Streamlit chrome ── */
+#MainMenu, footer, header {{ visibility: hidden; }}
+.stDeployButton {{ display: none; }}
+div[data-testid="stToolbar"] {{ visibility: hidden; }}
+[data-testid="stHeader"] {{ display: none !important; }}
 
-/* Main area */
-.main .block-container { padding: 1.5rem 2rem; max-width: 1400px; }
+/* ── App background ── */
+.stApp {{ background: {bg} !important; }}
 
-/* Cards */
-.card {
-    background: white;
-    border: 0.5px solid #E5E5E5;
-    border-radius: 12px;
-    padding: 16px 20px;
-    margin-bottom: 12px;
-}
+/* ── Sidebar ── */
+[data-testid="stSidebar"] {{
+    background: {bg_sidebar} !important;
+    border-left: 1px solid {border} !important;
+}}
+[data-testid="stSidebar"] .block-container {{ padding: 1rem; }}
+[data-testid="stSidebar"] p,
+[data-testid="stSidebar"] span,
+[data-testid="stSidebar"] label {{ color: {text_sec} !important; }}
+[data-testid="stSidebar"] small {{ color: {text_muted} !important; }}
 
-/* Feed items */
-.feed-item {
-    padding: 10px 0;
-    border-bottom: 0.5px solid #F0F0F0;
-}
-.feed-item:last-child { border-bottom: none; }
+/* ── Main container ── */
+.main .block-container {{ padding: 1.5rem 2rem; max-width: 1400px; }}
 
-.feed-badge {
+/* ── General text ── */
+p, .stMarkdown p {{ color: {text_sec}; }}
+h1, h2, h3, h4, h5, h6 {{ color: {text_pri}; }}
+[data-testid="stCaptionContainer"] p {{ color: {text_muted} !important; font-size: 12px !important; }}
+hr {{ border-color: {divider} !important; margin: 10px 0 !important; }}
+
+/* ── Buttons — primary ── */
+.stButton > button[kind="primary"] {{
+    background: {accent} !important;
+    color: white !important;
+    font-weight: 600 !important;
+    font-size: 13.5px !important;
+    border: none !important;
+    border-radius: 10px !important;
+    box-shadow: 0 4px 14px -4px rgba(83,73,200,0.4) !important;
+    transition: background 0.15s !important;
+}}
+.stButton > button[kind="primary"]:hover {{ filter: brightness(1.1) !important; }}
+.stButton > button[kind="primary"]:active {{ transform: translateY(1px) !important; }}
+
+/* ── Buttons — secondary ── */
+.stButton > button:not([kind="primary"]) {{
+    background: {btn_sec_bg} !important;
+    color: {btn_sec_c} !important;
+    border: 1px solid {btn_sec_bd} !important;
+    border-radius: 10px !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    transition: all 0.15s !important;
+}}
+.stButton > button:not([kind="primary"]):hover {{
+    background: {btn_sec_hb} !important;
+    color: {btn_sec_hc} !important;
+    border-color: {btn_sec_hd} !important;
+}}
+
+/* ── Download buttons ── */
+.stDownloadButton > button {{
+    background: {btn_sec_bg} !important;
+    color: {btn_sec_c} !important;
+    border: 1px solid {btn_sec_bd} !important;
+    border-radius: 10px !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+}}
+
+/* ── Tabs ── */
+.stTabs [data-baseweb="tab-list"] {{
+    background: {bg_tab_bar} !important;
+    border-radius: 12px !important;
+    padding: 4px !important;
+    border: 1px solid {border} !important;
+    gap: 2px !important;
+}}
+.stTabs [data-baseweb="tab"] {{
+    background: transparent !important;
+    color: {text_muted} !important;
+    border-radius: 9px !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    padding: 8px 16px !important;
+    border: none !important;
+}}
+.stTabs [aria-selected="true"] {{
+    background: {bg_tab_sel} !important;
+    color: {text_pri} !important;
+    box-shadow: inset 0 0 0 1px {border_str} !important;
+}}
+
+/* ── Expanders ── */
+[data-testid="stExpander"] {{
+    background: {bg_card} !important;
+    border: 1px solid {border} !important;
+    border-radius: 12px !important;
+    overflow: hidden !important;
+}}
+[data-testid="stExpander"] summary {{
+    font-weight: 600 !important;
+    font-size: 13.5px !important;
+    color: {text_pri} !important;
+    padding: 14px 16px !important;
+}}
+
+/* ── Inputs ── */
+[data-testid="stTextInput"] input,
+[data-baseweb="textarea"] textarea {{
+    background: {bg_input} !important;
+    border: 1px solid {border_str} !important;
+    border-radius: 10px !important;
+    color: {text_pri} !important;
+    font-size: 13.5px !important;
+}}
+[data-testid="stTextInput"] input:focus,
+[data-baseweb="textarea"] textarea:focus {{
+    border-color: {accent} !important;
+    box-shadow: 0 0 0 3px rgba(83,73,200,0.12) !important;
+}}
+[data-testid="stTextInput"] input::placeholder,
+[data-baseweb="textarea"] textarea::placeholder {{ color: {text_muted} !important; }}
+
+/* ── Selectbox / dropdown ── */
+[data-baseweb="select"] > div {{
+    background: {bg_input} !important;
+    border-color: {border_str} !important;
+    border-radius: 10px !important;
+    color: {text_pri} !important;
+}}
+
+/* ── Dataframes ── */
+[data-testid="stDataFrame"] {{
+    border: 1px solid {border} !important;
+    border-radius: 12px !important;
+    overflow: hidden !important;
+}}
+
+/* ── Alerts ── */
+[data-testid="stSuccess"] {{
+    background: rgba(22,163,74,0.08) !important;
+    border: 1px solid rgba(22,163,74,0.22) !important;
+    border-radius: 10px !important;
+}}
+[data-testid="stInfo"] {{
+    background: rgba(83,73,200,0.07) !important;
+    border: 1px solid rgba(83,73,200,0.18) !important;
+    border-radius: 10px !important;
+}}
+[data-testid="stWarning"] {{
+    background: rgba(217,119,6,0.07) !important;
+    border: 1px solid rgba(217,119,6,0.18) !important;
+    border-radius: 10px !important;
+}}
+[data-testid="stError"] {{
+    background: rgba(220,38,38,0.07) !important;
+    border: 1px solid rgba(220,38,38,0.18) !important;
+    border-radius: 10px !important;
+}}
+
+/* ── Radio ── */
+[data-testid="stRadio"] label {{ color: {text_sec} !important; }}
+[data-testid="stRadio"] [data-testid="stMarkdownContainer"] p {{ color: {text_sec} !important; }}
+
+/* ── Spinner ── */
+[data-testid="stSpinner"] {{ color: {accent} !important; }}
+
+/* ── Custom component styles ── */
+.feed-badge {{
     display: inline-block;
     padding: 2px 10px;
     border-radius: 99px;
     font-size: 11px;
     font-weight: 600;
     margin-bottom: 4px;
-}
+}}
 
-/* Section title */
-.section-title {
-    font-size: 13px;
-    font-weight: 600;
-    color: #1A1A1A;
-    margin-bottom: 10px;
-    padding-bottom: 6px;
-    border-bottom: 1px solid #F0F0F0;
-}
-
-/* Keyword chip */
-.kw-chip {
+/* Keyword chips — category colors (theme-independent) */
+.kw-chip-base, .kw-blue-chip, .kw-purple-chip, .kw-teal-chip, .kw-amber-chip {{
     display: inline-block;
-    background: #F0EDF9;
-    color: #4A3DAA;
-    border: 0.5px solid #C8C3ED;
     border-radius: 99px;
-    padding: 2px 10px;
+    padding: 3px 11px;
     font-size: 12px;
-    margin: 2px;
-}
+    font-weight: 500;
+    margin: 2px 0;
+    line-height: 1.5;
+}}
+.kw-blue-chip   {{ background:rgba(59,130,246,0.13);  color:{kw_blue};   border:0.5px solid rgba(59,130,246,0.35); }}
+.kw-purple-chip {{ background:rgba(139,92,246,0.13);  color:{kw_purple}; border:0.5px solid rgba(139,92,246,0.35); }}
+.kw-teal-chip   {{ background:rgba(20,184,166,0.13);  color:{kw_teal};   border:0.5px solid rgba(20,184,166,0.35); }}
+.kw-amber-chip  {{ background:rgba(245,158,11,0.13);  color:{kw_amber};  border:0.5px solid rgba(245,158,11,0.35); }}
 
-/* Stat mini */
-.stat-mini {
-    background: #F7F7F8;
-    border-radius: 8px;
-    padding: 10px 14px;
+.stat-mini {{
+    background: {bg_stat};
+    border: 1px solid {border};
+    border-radius: 10px;
+    padding: 12px 14px;
     text-align: center;
-}
-.stat-num { font-size: 22px; font-weight: 700; color: #1A1A1A; }
-.stat-lbl { font-size: 11px; color: #888; margin-top: 2px; }
+}}
+.stat-num {{ font-size: 22px; font-weight: 700; color: {text_pri}; }}
+.stat-lbl {{ font-size: 11px; color: {text_muted}; margin-top: 2px; }}
 
-/* Avatar */
-.company-avatar {
-    width: 40px; height: 40px;
-    border-radius: 50%;
+.company-avatar {{
+    width: 42px; height: 42px;
+    border-radius: 10px;
     display: inline-flex;
     align-items: center; justify-content: center;
     font-weight: 700; font-size: 14px;
-}
+}}
 
-/* Top bar */
-.top-bar {
-    display: flex; align-items: center; gap: 14px;
-    padding: 0 0 18px 0;
-    border-bottom: 1px solid #EBEBEB;
-    margin-bottom: 20px;
-}
-
-/* Financial table overrides */
-.fin-table th { background: #F7F7F8 !important; font-weight: 600; font-size: 12px; }
-.fin-table .section-row td { background: #EEEDFE !important; color: #5349C8 !important; font-weight: 600; }
-.fin-table .total-row td { background: #D6D3F5 !important; font-weight: 700; }
-
-/* Hide streamlit elements */
-#MainMenu, footer, header { visibility: hidden; }
-.stDeployButton { display: none; }
-div[data-testid="stToolbar"] { visibility: hidden; }
+.fin-section-header {{
+    background: {fin_head};
+    color: {fin_headc};
+    font-weight: 600;
+    font-size: 13px;
+    padding: 6px 12px;
+    border-radius: 6px 6px 0 0;
+    border: 0.5px solid {accent_bdr};
+}}
 </style>
-""", unsafe_allow_html=True)
+"""
 
+# ── Session state ─────────────────────────────────────────────
+if "dark_mode" not in st.session_state:
+    st.session_state.dark_mode = True
+
+
+st.markdown(_get_css(st.session_state.dark_mode), unsafe_allow_html=True)
 
 # ── Session state ─────────────────────────────────────────────
 if "data" not in st.session_state:
@@ -136,14 +367,27 @@ if "source_filters" not in st.session_state:
 if "fin_edit_mode" not in st.session_state:
     st.session_state.fin_edit_mode = False
 
+if "news_age_days" not in st.session_state:
+    st.session_state.news_age_days = 7
+
+if "last_scan_times" not in st.session_state:
+    st.session_state.last_scan_times = {}
+
 data = st.session_state.data
 companies = get_companies(data)
 
 
 # ── Sidebar ───────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("### 📊 חצבים")
-    st.markdown("**דאשבורד אנליסט**")
+    hdr_col, mode_col = st.columns([0.75, 0.25])
+    with hdr_col:
+        st.markdown("### 📊 חצבים")
+        st.markdown("**דאשבורד אנליסט**")
+    with mode_col:
+        mode_icon = "☀️" if st.session_state.dark_mode else "🌙"
+        if st.button(mode_icon, key="toggle_dark", help="החלף מצב תצוגה"):
+            st.session_state.dark_mode = not st.session_state.dark_mode
+            st.rerun()
     st.divider()
 
     st.markdown("**חברות במעקב**")
@@ -205,20 +449,8 @@ with col_info:
     st.caption(f"{feed_count} פריטי מידע · {kw_count} מילות מפתח")
 
 with col_actions:
-    col_del, col_exp = st.columns(2)
-    with col_exp:
-        fin = company.get("financials", {})
-        if fin.get("sections"):
-            xlsx_bytes = export_company_financials(company)
-            st.download_button(
-                "⬇️ Excel",
-                data=xlsx_bytes,
-                file_name=f"{company['name']}_financials.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True,
-            )
-    with col_del:
-        if st.button("🗑️ מחק", key="del_co", use_container_width=True):
+    with col_actions:
+        if st.button("🗑️ מחק חברה", key="del_co", use_container_width=True):
             st.session_state["confirm_delete"] = True
 
 if st.session_state.get("confirm_delete"):
@@ -246,19 +478,18 @@ tab_feed, tab_fin, tab_settings = st.tabs(["📰 פיד מידע", "📊 דוח�
 # TAB 1: FEED
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 with tab_feed:
-    col_left, col_right = st.columns([0.62, 0.38], gap="large")
+    col_feed, col_panel = st.columns([0.60, 0.40], gap="large")
 
-    with col_left:
+    # ── LEFT (60%): Feed items ────────────────────────────────
+    with col_feed:
         st.markdown("##### פיד מידע")
 
-        # Source filters
+        # Source filter toggles
         src_cols = st.columns(5)
-        sources_list = list(SOURCE_META.items())
-        for si, (src_key, src_info) in enumerate(sources_list):
+        for si, (src_key, src_info) in enumerate(SOURCE_META.items()):
             with src_cols[si]:
                 active = src_key in st.session_state.source_filters
-                label = f"{'✓ ' if active else ''}{src_info['label']}"
-                if st.button(label, key=f"filter_{src_key}", use_container_width=True):
+                if st.button(f"{'✓ ' if active else ''}{src_info['label']}", key=f"filter_{src_key}", use_container_width=True):
                     if active:
                         st.session_state.source_filters.discard(src_key)
                     else:
@@ -267,15 +498,9 @@ with tab_feed:
 
         st.markdown("")
 
-        # ── Time range filter ──────────────────────────────────
+        # Time range filter
         _time_options = {"היום": 1, "שבוע אחרון": 7, "חודש אחרון": 30, "הכל": None}
-        time_filter = st.radio(
-            "הצג מידע מ:",
-            options=list(_time_options.keys()),
-            horizontal=True,
-            index=3,
-            key="time_filter",
-        )
+        time_filter = st.radio("הצג מידע מ:", options=list(_time_options.keys()), horizontal=True, index=3, key="time_filter")
         _days = _time_options[time_filter]
         _now = datetime.now()
 
@@ -283,8 +508,7 @@ with tab_feed:
             if _days is None:
                 return True
             try:
-                ts = datetime.fromisoformat(item.get("timestamp", ""))
-                return (_now - ts) <= timedelta(days=_days)
+                return (_now - datetime.fromisoformat(item.get("timestamp", ""))) <= timedelta(days=_days)
             except Exception:
                 return True
 
@@ -292,125 +516,152 @@ with tab_feed:
         filtered_feeds = [f for f in feeds if f.get("source") in st.session_state.source_filters]
         time_filtered = [f for f in filtered_feeds if _in_range(f)]
 
-        st.caption(f"מציג {len(time_filtered)} מתוך {len(feeds)} פריטים")
+        if feeds:
+            st.caption(f"מציג {len(time_filtered)} מתוך {len(feeds)} פריטים")
         st.markdown("")
 
-        if not time_filtered:
-            st.info("אין פריטים להצגה. שנה את הסינון או הוסף פריט חדש.")
+        # Feed items or empty state
+        if not feeds:
+            st.markdown(
+                "<div style='text-align:center;padding:52px 16px;opacity:0.42'>"
+                "<div style='font-size:42px'>📭</div>"
+                "<div style='font-size:15px;font-weight:600;margin:10px 0 6px'>הפיד ריק</div>"
+                "<div style='font-size:12px;line-height:1.7'>"
+                "לחץ על <b>סרוק עכשיו</b> כדי למשוך חדשות על החברה,<br>"
+                "או הוסף פריט ידני מהעמודה הימנית."
+                "</div></div>",
+                unsafe_allow_html=True,
+            )
+        elif not time_filtered:
+            st.info("אין פריטים בטווח הזמן הנבחר.")
         else:
             for item in time_filtered:
-                src = item.get("source", "other")
+                src  = item.get("source", "other")
                 meta = SOURCE_META.get(src, SOURCE_META["other"])
-                with st.container():
-                    c1, c2 = st.columns([0.9, 0.1])
-                    with c1:
-                        st.markdown(
-                            f"<span class='feed-badge' style='background:{meta['bg']};color:{meta['color']}'>"
-                            f"{meta['icon']} {meta['label']}</span>",
-                            unsafe_allow_html=True
-                        )
-                        title = item.get("title", "")
-                        url = item.get("url", "")
-                        if url:
-                            st.markdown(f"**[{title}]({url})**")
-                        else:
-                            st.markdown(f"**{title}**")
-                        notes = item.get("notes", "")
-                        if notes:
-                            st.caption(f"📝 {notes}")
-                        ts = format_timestamp(item.get("timestamp", ""))
-                        st.caption(ts)
-                    with c2:
-                        if st.button("✕", key=f"del_{item['id']}", help="מחק פריט"):
-                            delete_feed_item(data, company["id"], item["id"])
-                            st.rerun()
-                    st.markdown("<hr style='border:none;border-top:0.5px solid #F0F0F0;margin:4px 0'>", unsafe_allow_html=True)
+                c1, c2 = st.columns([0.92, 0.08])
+                with c1:
+                    st.markdown(
+                        f"<span class='feed-badge' style='background:{meta['bg']};color:{meta['color']}'>"
+                        f"{meta['icon']} {meta['label']}</span>",
+                        unsafe_allow_html=True,
+                    )
+                    url = item.get("url", "")
+                    title = item.get("title", "")
+                    st.markdown(f"**[{title}]({url})**" if url else f"**{title}**")
+                    if item.get("notes"):
+                        st.caption(f"📝 {item['notes']}")
+                    st.caption(format_timestamp(item.get("timestamp", "")))
+                with c2:
+                    if st.button("✕", key=f"del_{item['id']}", help="מחק"):
+                        delete_feed_item(data, company["id"], item["id"])
+                        st.rerun()
+                st.markdown(
+                    "<hr style='border:none;border-top:0.5px solid rgba(128,128,128,0.15);margin:4px 0'>",
+                    unsafe_allow_html=True,
+                )
 
-    with col_right:
-        # Stats
+    # ── RIGHT (40%): Keyword manager + add form ───────────────
+    with col_panel:
+        # Stats row
         feeds_all = company.get("feeds", [])
-        s_li = sum(1 for f in feeds_all if f.get("source") == "linkedin")
         s_go = sum(1 for f in feeds_all if f.get("source") == "google")
+        s_li = sum(1 for f in feeds_all if f.get("source") == "linkedin")
         s_ma = sum(1 for f in feeds_all if f.get("source") == "maya")
         s_mn = sum(1 for f in feeds_all if f.get("source") == "manual")
-
-        sc1, sc2 = st.columns(2)
-        with sc1:
-            st.markdown(f"<div class='stat-mini'><div class='stat-num'>{s_li}</div><div class='stat-lbl'>LinkedIn</div></div>", unsafe_allow_html=True)
-        with sc2:
-            st.markdown(f"<div class='stat-mini'><div class='stat-num'>{s_go}</div><div class='stat-lbl'>Google</div></div>", unsafe_allow_html=True)
-        sc3, sc4 = st.columns(2)
-        with sc3:
-            st.markdown(f"<div class='stat-mini'><div class='stat-num'>{s_ma}</div><div class='stat-lbl'>מאיה</div></div>", unsafe_allow_html=True)
-        with sc4:
-            st.markdown(f"<div class='stat-mini'><div class='stat-num'>{s_mn}</div><div class='stat-lbl'>ידני</div></div>", unsafe_allow_html=True)
+        sc1, sc2, sc3, sc4 = st.columns(4)
+        with sc1: st.markdown(f"<div class='stat-mini'><div class='stat-num'>{s_go}</div><div class='stat-lbl'>Google</div></div>", unsafe_allow_html=True)
+        with sc2: st.markdown(f"<div class='stat-mini'><div class='stat-num'>{s_li}</div><div class='stat-lbl'>LinkedIn</div></div>", unsafe_allow_html=True)
+        with sc3: st.markdown(f"<div class='stat-mini'><div class='stat-num'>{s_ma}</div><div class='stat-lbl'>מאיה</div></div>", unsafe_allow_html=True)
+        with sc4: st.markdown(f"<div class='stat-mini'><div class='stat-num'>{s_mn}</div><div class='stat-lbl'>ידני</div></div>", unsafe_allow_html=True)
 
         st.markdown("")
 
-        # ── Google News refresh ────────────────────────────────
-        if st.button("🔄 רענן חדשות", key="refresh_news", use_container_width=True):
-            with st.spinner("מושך חדשות..."):
-                new_items = fetch_news_for_company(company)
-            existing_titles = {f.get("title", "") for f in company.get("feeds", [])}
-            added = 0
-            for ni in new_items:
-                if ni["title"] not in existing_titles:
-                    add_feed_item(data, company["id"], "google", ni["title"], ni["url"])
-                    added += 1
-            if added > 0:
-                st.success(f"נוספו {added} פריטים חדשים")
-            else:
-                st.info("אין פריטים חדשים")
-            st.rerun()
+        # ── Keyword Manager Panel ──────────────────────────────
+        st.markdown("##### 🔍 מילות מפתח לסריקה")
 
-        st.markdown("")
-
-        # Add item form
-        st.markdown("##### הוסף פריט")
-        with st.form("add_feed_form", clear_on_submit=True):
-            new_src = st.selectbox(
-                "מקור",
-                options=list(SOURCE_META.keys()),
-                format_func=lambda k: SOURCE_META[k]["label"],
-                key="new_src_sel"
-            )
-            new_title = st.text_area("כותרת / תיאור", placeholder="מה גילית? הוסף קישור, ציטוט, הערה...", height=80)
-            new_url = st.text_input("קישור (אופציונלי)", placeholder="https://...")
-            new_notes = st.text_input("הערות (אופציונלי)", placeholder="הקשר נוסף...")
-            submitted = st.form_submit_button("➕ הוסף לפיד", use_container_width=True, type="primary")
-            if submitted and new_title.strip():
-                add_feed_item(data, company["id"], new_src, new_title.strip(), new_url.strip(), new_notes.strip())
-                st.rerun()
-
-        # ── Keywords chip UI ───────────────────────────────────
-        st.markdown("##### מילות מפתח")
-        st.caption("מילות המפתח האלה ישמשו לסריקת חדשות אוטומטית")
         keywords = company.get("keywords", [])
         if keywords:
-            for kw in keywords:
-                kw_col, del_col = st.columns([0.82, 0.18])
-                with kw_col:
-                    st.markdown(f"<span class='kw-chip'>{kw}</span>", unsafe_allow_html=True)
-                with del_col:
-                    if st.button("✕", key=f"del_kw_{company['id']}_{kw}", help=f"הסר {kw}"):
-                        remove_keyword(data, company["id"], kw)
-                        st.rerun()
+            CHIPS_PER_ROW = 3
+            chip_w = round(0.80 / CHIPS_PER_ROW, 3)
+            del_w  = round(0.10 / CHIPS_PER_ROW, 3)
+            for row_start in range(0, len(keywords), CHIPS_PER_ROW):
+                row_kws = keywords[row_start:row_start + CHIPS_PER_ROW]
+                n = len(row_kws)
+                widths = []
+                for _ in range(n):
+                    widths.extend([chip_w, del_w])
+                remainder = round(1.0 - sum(widths), 3)
+                if remainder > 0.01:
+                    widths.append(remainder)
+                cols = st.columns(widths)
+                for j, kw in enumerate(row_kws):
+                    cat = classify_keyword(kw)
+                    with cols[j * 2]:
+                        st.markdown(f"<span class='kw-{cat}-chip'>{kw}</span>", unsafe_allow_html=True)
+                    with cols[j * 2 + 1]:
+                        if st.button("✕", key=f"rmkw_{company['id']}_{kw}", help=f"הסר {kw}"):
+                            remove_keyword(data, company["id"], kw)
+                            st.rerun()
         else:
-            st.caption("אין מילות מפתח עדיין.")
-
-        add_col, btn_col = st.columns([0.72, 0.28])
-        with add_col:
-            new_kw_input = st.text_input(
-                "מילת מפתח",
-                placeholder="לדוגמה: Q2 2025",
-                key="add_kw_input",
-                label_visibility="collapsed",
+            st.markdown(
+                "<div style='text-align:center;padding:14px 8px;opacity:0.42'>"
+                "<span style='font-size:22px'>🏷️</span><br>"
+                "<span style='font-size:12px'>אין מילות מפתח. הוסף למטה.</span>"
+                "</div>",
+                unsafe_allow_html=True,
             )
-        with btn_col:
-            st.markdown("<br>", unsafe_allow_html=True)
-            if st.button("הוסף", key="do_add_kw", use_container_width=True):
-                if new_kw_input.strip():
-                    add_keyword(data, company["id"], new_kw_input.strip())
+
+        # Add keyword — form lets Enter key submit
+        with st.form("add_kw_form", clear_on_submit=True):
+            kw_inp_col, kw_btn_col = st.columns([0.72, 0.28])
+            with kw_inp_col:
+                new_kw = st.text_input("kw", placeholder="הקלד מילת מפתח...", label_visibility="collapsed")
+            with kw_btn_col:
+                kw_ok = st.form_submit_button("+ הוסף", use_container_width=True)
+            if kw_ok and new_kw.strip():
+                add_keyword(data, company["id"], new_kw.strip())
+                st.rerun()
+
+        # Last scan info
+        last_scan_ts = st.session_state.last_scan_times.get(company["id"])
+        if last_scan_ts:
+            st.caption(f"💡 {len(keywords)} מילות מפתח · עדכון אחרון: {format_timestamp(last_scan_ts)}")
+        else:
+            st.caption(f"💡 {len(keywords)} מילות מפתח · טרם סרקת")
+
+        # Age selector + scan button
+        _age_labels = {"24 שעות": 1, "שבוע": 7, "חודש": 30, "ללא מגבלה": None}
+        age_col, scan_col = st.columns([0.45, 0.55])
+        with age_col:
+            _age_sel = st.selectbox("טווח", list(_age_labels.keys()), index=1, key="news_age_sel", label_visibility="collapsed")
+        _age_days = _age_labels[_age_sel]
+        with scan_col:
+            if st.button("🔄 סרוק עכשיו", key="refresh_news", use_container_width=True, type="primary"):
+                with st.spinner("סורק חדשות..."):
+                    new_items = fetch_news_for_company(company, max_age_days=_age_days)
+                existing_titles = {f.get("title", "") for f in company.get("feeds", [])}
+                added = sum(
+                    1 for ni in new_items
+                    if ni["title"] not in existing_titles
+                    and not add_feed_item(data, company["id"], "google", ni["title"], ni["url"], timestamp=ni["timestamp"]) is None
+                )
+                st.session_state.last_scan_times[company["id"]] = datetime.now().isoformat()
+                msg = f"נמצאו {added} פריטים חדשים ✓" if added > 0 else "אין פריטים חדשים"
+                st.toast(msg)
+                st.rerun()
+
+        st.divider()
+
+        # ── Manual add form ────────────────────────────────────
+        st.markdown("##### ➕ הוסף פריט ידני")
+        with st.form("add_feed_form", clear_on_submit=True):
+            new_src = st.selectbox("מקור", list(SOURCE_META.keys()), format_func=lambda k: SOURCE_META[k]["label"], key="new_src_sel")
+            new_title = st.text_area("כותרת / תיאור", placeholder="מה גילית? הוסף קישור, ציטוט, הערה...", height=72)
+            new_url   = st.text_input("קישור (אופציונלי)", placeholder="https://...")
+            new_notes = st.text_input("הערות (אופציונלי)", placeholder="הקשר נוסף...")
+            if st.form_submit_button("➕ הוסף לפיד", use_container_width=True, type="primary"):
+                if new_title.strip():
+                    add_feed_item(data, company["id"], new_src, new_title.strip(), new_url.strip(), new_notes.strip())
                     st.rerun()
 
 
@@ -418,127 +669,175 @@ with tab_feed:
 # TAB 2: FINANCIALS
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 with tab_fin:
+    import pandas as pd
+
     fin = company.get("financials", {})
     periods = fin.get("periods", [])
     sections = fin.get("sections", [])
+    maya_imported = fin.get("maya_imported", False)
 
-    col_fin_hdr, col_fin_btn = st.columns([0.7, 0.3])
+    # ── Maya PDF import (always shown at top) ─────────────────
+    with st.expander("📥 ייבוא דוח מאיה (PDF)", expanded=not maya_imported):
+        st.markdown("העלה קובץ PDF של דוח כספי מאתר מאיה — המערכת תחלץ את הנתונים ותמלא את הטבלה.")
+        uploaded = st.file_uploader("בחר קובץ PDF", type=["pdf"], key="maya_upload")
+        if uploaded:
+            pdf_bytes = uploaded.read()
+            with st.spinner("מחלץ נתונים מה-PDF..."):
+                result = parse_maya_pdf(pdf_bytes)
+
+            if result is None:
+                st.error("לא ניתן היה לחלץ נתונים מהקובץ. ודא שמדובר ב-PDF דיגיטלי (לא סרוק).")
+            else:
+                parsed_sections, parsed_periods = result
+                st.success(f"זוהו {len(parsed_sections)} סעיפים ו-{len(parsed_periods)} עמודות תקופה.")
+
+                # Preview
+                for psec in parsed_sections[:2]:
+                    st.markdown(f"**{psec['name']}** ({len(psec['rows'])} שורות)")
+                    preview_rows = [{**{"סעיף": r["label"]},
+                                     **{parsed_periods[i]: f"{v:,.0f}" for i, v in enumerate(r["values"][:4])}}
+                                    for r in psec["rows"][:4]]
+                    if preview_rows:
+                        st.dataframe(pd.DataFrame(preview_rows), hide_index=True, use_container_width=True)
+
+                if st.button("✅ אישור — ייבא לחברה", type="primary", key="do_import"):
+                    import_financials_from_maya(data, company["id"], parsed_sections, parsed_periods)
+                    st.session_state.data = load_data()
+                    st.success("הנתונים יובאו בהצלחה!")
+                    st.rerun()
+
+    # ── No data state ─────────────────────────────────────────
+    if not maya_imported or not sections:
+        st.info("העלה דוח PDF מאיה למעלה כדי לאכלס את הטבלאות הכספיות.")
+        st.stop()
+
+    # ── Header row ────────────────────────────────────────────
+    col_fin_hdr, col_fin_btn = st.columns([0.65, 0.35])
     with col_fin_hdr:
-        st.markdown("##### דוחות כספיים")
-        st.caption("יחידות: אלפי ₪ / $ לפי החברה")
+        st.markdown(f"##### דוחות כספיים — {company['name']}")
+        st.caption(f"תקופות: {' · '.join(periods)}   |   יחידות: אלפי ₪ / $")
     with col_fin_btn:
-        c1, c2 = st.columns(2)
-        with c1:
+        b1, b2, b3 = st.columns(3)
+        with b1:
             edit_label = "✏️ עריכה" if not st.session_state.fin_edit_mode else "✅ סיים"
             if st.button(edit_label, key="toggle_edit", use_container_width=True):
                 st.session_state.fin_edit_mode = not st.session_state.fin_edit_mode
                 st.rerun()
-        with c2:
-            if fin.get("sections"):
-                xlsx_bytes = export_company_financials(company)
-                st.download_button(
-                    "⬇️ Excel",
-                    data=xlsx_bytes,
-                    file_name=f"{company['name']}_financials.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True,
-                )
+        with b2:
+            xlsx_bytes = export_company_financials(company)
+            st.download_button(
+                "⬇️ Excel",
+                data=xlsx_bytes,
+                file_name=f"{company['name']}_financials.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+                key="dl_excel_fin",
+            )
+        with b3:
+            if st.button("🗑️ נקה", key="clear_fin", use_container_width=True):
+                st.session_state["confirm_clear_fin"] = True
 
-    # ── Maya PDF import ───────────────────────────────────────
-    with st.expander("📥 ייבוא דוח מאיה (PDF)", expanded=False):
+    if st.session_state.get("confirm_clear_fin"):
+        st.warning("למחוק את כל הנתונים הכספיים?")
+        cc1, cc2 = st.columns(2)
+        with cc1:
+            if st.button("כן, מחק", type="primary", key="do_clear_fin"):
+                for c in data["companies"]:
+                    if c["id"] == company["id"]:
+                        c["financials"] = {"periods": [], "sections": [], "maya_imported": False}
+                        break
+                save_data(data)
+                st.session_state["confirm_clear_fin"] = False
+                st.rerun()
+        with cc2:
+            if st.button("ביטול", key="cancel_clear_fin"):
+                st.session_state["confirm_clear_fin"] = False
+                st.rerun()
+
+    st.divider()
+
+    # ── Render financial tables ────────────────────────────────
+    for sec_idx, sec in enumerate(sections):
         st.markdown(
-            "העלה קובץ PDF של דוח כספי מאתר מאיה — המערכת תחלץ את הנתונים ותמלא את הטבלה."
+            f"<div class='fin-section-header'>{sec['name']}</div>",
+            unsafe_allow_html=True
         )
-        uploaded = st.file_uploader("בחר קובץ PDF", type=["pdf"], key="maya_upload")
-        if uploaded:
-            col_pdf1, col_pdf2 = st.columns(2)
-            with col_pdf1:
-                target_period = st.text_input("שם תקופה", placeholder="Q2-25")
-            with col_pdf2:
-                st.markdown("<br>", unsafe_allow_html=True)
-                if st.button("ייבא נתונים", type="primary", key="do_import"):
-                    st.info("ייבוא PDF מלא יהיה זמין בגרסה הבאה. כרגע ניתן להזין ידנית בטבלה למטה.")
 
-    if not sections:
-        st.info("עדיין אין דוחות כספיים לחברה זו. הוסף סעיף ראשון למטה.")
-    else:
-        # ── Render financial table ─────────────────────────────
-        import pandas as pd
+        if st.session_state.fin_edit_mode:
+            rows_data = []
+            for row in sec.get("rows", []):
+                row_dict = {"סעיף": row["label"]}
+                for pi, period in enumerate(periods):
+                    row_dict[period] = row["values"][pi] if pi < len(row["values"]) else 0
+                rows_data.append(row_dict)
 
-        for sec_idx, sec in enumerate(sections):
-            with st.container():
-                st.markdown(
-                    f"<div style='background:#EEEDFE;color:#5349C8;font-weight:600;"
-                    f"font-size:13px;padding:6px 12px;border-radius:6px 6px 0 0;"
-                    f"border:0.5px solid #C8C3ED'>{sec['name']}</div>",
-                    unsafe_allow_html=True
-                )
+            df_edit = pd.DataFrame(rows_data)
+            edited = st.data_editor(
+                df_edit,
+                key=f"editor_{company['id']}_{sec_idx}",
+                use_container_width=True,
+                hide_index=True,
+                num_rows="fixed",
+                column_config={"סעיף": st.column_config.TextColumn("סעיף", width="medium")}
+            )
+            for ri, row in edited.iterrows():
+                for pi, period in enumerate(periods):
+                    try:
+                        val = float(row[period]) if row[period] is not None else 0
+                        update_financial_cell(data, company["id"], sec_idx, ri, pi, val)
+                    except Exception:
+                        pass
 
-                if st.session_state.fin_edit_mode:
-                    # Editable table using data_editor
-                    rows_data = []
-                    for row in sec.get("rows", []):
-                        row_dict = {"סעיף": row["label"]}
-                        for pi, period in enumerate(periods):
-                            val = row["values"][pi] if pi < len(row["values"]) else 0
-                            row_dict[period] = val
-                        rows_data.append(row_dict)
+            with st.form(f"add_row_{sec_idx}", clear_on_submit=True):
+                new_row_label = st.text_input("שם שורה חדשה", key=f"new_row_lbl_{sec_idx}", placeholder="לדוגמה: הכנסות ממנויים")
+                if st.form_submit_button("➕ הוסף שורה"):
+                    if new_row_label.strip():
+                        add_financial_row(data, company["id"], sec_idx, new_row_label.strip())
+                        st.rerun()
+        else:
+            rows_data = []
+            for row in sec.get("rows", []):
+                row_dict = {"סעיף": row["label"]}
+                for pi, period in enumerate(periods):
+                    val = row["values"][pi] if pi < len(row["values"]) else 0
+                    row_dict[period] = f"{val:,.0f}" if isinstance(val, (int, float)) else val
+                rows_data.append(row_dict)
 
-                    df_edit = pd.DataFrame(rows_data)
-                    edited = st.data_editor(
-                        df_edit,
-                        key=f"editor_{company['id']}_{sec_idx}",
-                        use_container_width=True,
-                        hide_index=True,
-                        num_rows="fixed",
-                        column_config={"סעיף": st.column_config.TextColumn("סעיף", width="medium")}
-                    )
+            _total_label = sec.get('total_label', 'סה"כ')
+            total_dict = {"סעיף": f"📌 {_total_label}"}
+            for pi, period in enumerate(periods):
+                val = sec["total"][pi] if pi < len(sec.get("total", [])) else 0
+                total_dict[period] = f"{val:,.0f}" if isinstance(val, (int, float)) else val
+            rows_data.append(total_dict)
 
-                    # Save edits back
-                    for ri, row in edited.iterrows():
-                        for pi, period in enumerate(periods):
-                            try:
-                                val = float(row[period]) if row[period] is not None else 0
-                                update_financial_cell(data, company["id"], sec_idx, ri, pi, val)
-                            except Exception:
-                                pass
+            st.dataframe(pd.DataFrame(rows_data), use_container_width=True, hide_index=True)
 
-                    # Add row
-                    with st.form(f"add_row_{sec_idx}", clear_on_submit=True):
-                        new_row_label = st.text_input("שם שורה חדשה", key=f"new_row_lbl_{sec_idx}", placeholder="לדוגמה: הכנסות ממנויים")
-                        if st.form_submit_button("➕ הוסף שורה"):
-                            if new_row_label.strip():
-                                add_financial_row(data, company["id"], sec_idx, new_row_label.strip())
-                                st.rerun()
+        st.markdown("")
 
-                else:
-                    # Read-only display table
-                    rows_data = []
-                    for row in sec.get("rows", []):
-                        row_dict = {"סעיף": row["label"]}
-                        for pi, period in enumerate(periods):
-                            val = row["values"][pi] if pi < len(row["values"]) else 0
-                            row_dict[period] = f"{val:,.0f}" if isinstance(val, (int, float)) else val
-                        rows_data.append(row_dict)
+    # ── Comparison table: last two periods ────────────────────
+    if len(periods) >= 2 and not st.session_state.fin_edit_mode:
+        p_prev, p_curr = periods[-2], periods[-1]
+        comp_rows = []
+        for sec in sections:
+            for row in sec.get("rows", []):
+                v_prev = row["values"][-2] if len(row["values"]) >= 2 else 0
+                v_curr = row["values"][-1] if len(row["values"]) >= 1 else 0
+                delta = v_curr - v_prev
+                pct = (delta / abs(v_prev) * 100) if v_prev != 0 else None
+                comp_rows.append({
+                    "סעיף": row["label"],
+                    p_prev: f"{v_prev:,.0f}",
+                    p_curr: f"{v_curr:,.0f}",
+                    "שינוי": f"{delta:+,.0f}",
+                    "% שינוי": f"{pct:+.1f}%" if pct is not None else "—",
+                })
 
-                    # Total row
-                    _total_label = sec.get('total_label', 'סה"כ')
-                    total_dict = {"סעיף": f"📌 {_total_label}"}
-                    for pi, period in enumerate(periods):
-                        val = sec["total"][pi] if pi < len(sec.get("total", [])) else 0
-                        total_dict[period] = f"{val:,.0f}" if isinstance(val, (int, float)) else val
-                    rows_data.append(total_dict)
+        if comp_rows:
+            st.divider()
+            st.markdown(f"##### שינויים: {p_prev} → {p_curr}")
+            st.dataframe(pd.DataFrame(comp_rows), use_container_width=True, hide_index=True)
 
-                    df_show = pd.DataFrame(rows_data)
-                    st.dataframe(
-                        df_show,
-                        use_container_width=True,
-                        hide_index=True,
-                    )
-
-                st.markdown("")
-
-    # ── Add section ───────────────────────────────────────────
+    # ── Add section / period (edit mode) ──────────────────────
     if st.session_state.fin_edit_mode:
         st.divider()
         col_sec1, col_sec2, col_per1, col_per2 = st.columns(4)
