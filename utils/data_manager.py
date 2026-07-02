@@ -1,3 +1,4 @@
+import html as _html
 import json
 import os
 import uuid
@@ -53,6 +54,30 @@ def get_company(data: dict, company_id: str) -> dict | None:
     return None
 
 
+def add_balance_sheet_extraction(data: dict, company_id: str, record: dict) -> dict:
+    """Append a balance-sheet extraction record, keyed on (company, period_end,
+    period_type). Never overwrites — an identical re-extraction is reported as
+    'duplicate', a same-key-but-different-values extraction as 'conflict', so
+    the caller can flag it for manual review instead of silently losing data."""
+    company = get_company(data, company_id)
+    if company is None:
+        return {"status": "error", "message": f"company_id {company_id!r} not found"}
+
+    extractions = company.setdefault("balance_sheet_extractions", [])
+    key = (record.get("company"), record.get("period_end"), record.get("period_type"))
+
+    for existing in extractions:
+        existing_key = (existing.get("company"), existing.get("period_end"), existing.get("period_type"))
+        if existing_key == key:
+            if existing.get("fields") == record.get("fields"):
+                return {"status": "duplicate", "existing": existing}
+            return {"status": "conflict", "existing": existing, "incoming": record}
+
+    extractions.append(record)
+    save_data(data)
+    return {"status": "added", "record": record}
+
+
 def add_company(data: dict, name: str, ticker: str, keywords: list[str]) -> dict:
     idx = len(data["companies"])
     bg, fg = AVATAR_COLORS[idx % len(AVATAR_COLORS)]
@@ -65,6 +90,7 @@ def add_company(data: dict, name: str, ticker: str, keywords: list[str]) -> dict
         "avatar_bg": bg,
         "avatar_fg": fg,
         "keywords": [k.strip() for k in keywords if k.strip()],
+        "competitor_keywords": [],
         "feeds": [],
         "financials": {
             "periods": ["2023", "2024", "2025E", "H1-24", "H2-24", "H1-25", "Q1-25", "Q1-26"],
@@ -81,7 +107,7 @@ def delete_company(data: dict, company_id: str):
     save_data(data)
 
 
-def add_feed_item(data: dict, company_id: str, source: str, title: str, url: str = "", notes: str = "", timestamp: str | None = None, snippet: str = "") -> dict:
+def add_feed_item(data: dict, company_id: str, source: str, title: str, url: str = "", notes: str = "", timestamp: str | None = None, snippet: str = "", matched_keyword: str = "", keyword_context: str = "") -> dict:
     item = {
         "id": str(uuid.uuid4())[:8],
         "source": source,
@@ -89,6 +115,8 @@ def add_feed_item(data: dict, company_id: str, source: str, title: str, url: str
         "url": url,
         "notes": notes,
         "snippet": snippet,
+        "matched_keyword": matched_keyword,
+        "keyword_context": keyword_context,
         "timestamp": timestamp or datetime.now().isoformat(),
     }
     for c in data["companies"]:
@@ -107,11 +135,17 @@ def delete_feed_item(data: dict, company_id: str, item_id: str):
     save_data(data)
 
 
-def add_keyword(data: dict, company_id: str, keyword: str):
+def add_keyword(data: dict, company_id: str, keyword: str, category: str = "company"):
     for c in data["companies"]:
         if c["id"] == company_id:
             if keyword not in c["keywords"]:
                 c["keywords"].append(keyword)
+            comp_kw = c.setdefault("competitor_keywords", [])
+            if category == "competitor":
+                if keyword not in comp_kw:
+                    comp_kw.append(keyword)
+            elif keyword in comp_kw:
+                comp_kw.remove(keyword)
             break
     save_data(data)
 
@@ -120,52 +154,7 @@ def remove_keyword(data: dict, company_id: str, keyword: str):
     for c in data["companies"]:
         if c["id"] == company_id:
             c["keywords"] = [k for k in c["keywords"] if k != keyword]
-            break
-    save_data(data)
-
-
-def update_financial_cell(data: dict, company_id: str, section_idx: int, row_idx: int, period_idx: int, value):
-    for c in data["companies"]:
-        if c["id"] == company_id:
-            c["financials"]["sections"][section_idx]["rows"][row_idx]["values"][period_idx] = value
-            break
-    save_data(data)
-
-
-def add_financial_section(data: dict, company_id: str, section_name: str):
-    for c in data["companies"]:
-        if c["id"] == company_id:
-            n = len(c["financials"]["periods"])
-            c["financials"]["sections"].append({
-                "name": section_name,
-                "rows": [],
-                "total_label": f'סה"כ {section_name}',
-                "total": [0] * n
-            })
-            break
-    save_data(data)
-
-
-def add_financial_row(data: dict, company_id: str, section_idx: int, row_label: str):
-    for c in data["companies"]:
-        if c["id"] == company_id:
-            n = len(c["financials"]["periods"])
-            c["financials"]["sections"][section_idx]["rows"].append({
-                "label": row_label,
-                "values": [0] * n
-            })
-            break
-    save_data(data)
-
-
-def add_period(data: dict, company_id: str, period_name: str):
-    for c in data["companies"]:
-        if c["id"] == company_id:
-            c["financials"]["periods"].append(period_name)
-            for sec in c["financials"]["sections"]:
-                for row in sec["rows"]:
-                    row["values"].append(0)
-                sec["total"].append(0)
+            c["competitor_keywords"] = [k for k in c.get("competitor_keywords", []) if k != keyword]
             break
     save_data(data)
 
@@ -179,195 +168,21 @@ def get_avatar_info(company: dict, idx: int) -> tuple[str, str, str]:
     return initials, bg, fg
 
 
-def classify_keyword(kw: str) -> str:
+def _find_keyword_context(title: str, snippet: str, keyword: str, window: int = 180) -> str:
+    """Return a text excerpt (plain text) around the first match of keyword."""
     import re
-    if re.match(r'^[A-Z]{2,6}$', kw):
-        return "blue"
-    if any('֐' <= c <= '׿' for c in kw):
-        return "purple"
-    if kw and kw[0].isupper() and ' ' not in kw:
-        return "teal"
-    return "amber"
-
-
-def parse_maya_pdf(pdf_bytes: bytes) -> tuple[list, list] | None:
-    """
-    Extract financial tables from a Maya PDF (digital, not scanned).
-    Returns (sections, periods) or None on failure.
-    Tries two strategies: PDF table extraction, then word-position row reconstruction.
-    """
-    try:
-        import pdfplumber
-        import io
-        import re
-        from collections import defaultdict, Counter
-    except ImportError:
-        return None
-
-    HEB = re.compile(r'[א-תיִ-פֿ]')
-    NUM_PAT   = re.compile(r'^-?[\d,]+\.?\d*$')
-    PAREN_PAT = re.compile(r'^\([\d,]+\.?\d*\)$')
-    PERIOD_PAT = re.compile(
-        r'\d{1,2}\s+ב(?:ינואר|פברואר|מרץ|אפריל|מאי|יוני|יולי|אוגוסט|ספטמבר|אוקטובר|נובמבר|דצמבר)\s+\d{4}'
-        r'|(?:Q|H)[1-4]\s*\d{4}'
-        r'|\b\d{4}\b'
-        r'|רבעון|מחצית|שנת'
-    )
-
-    def _float(s: str) -> float | None:
-        s = str(s).strip().replace(",", "").replace("\xa0", "").replace(" ", "")
-        if PAREN_PAT.match(s):
-            s = "-" + s[1:-1]
-        try:
-            return float(s)
-        except ValueError:
-            return None
-
-    def _is_num(s: str) -> bool:
-        return NUM_PAT.match(s) is not None or PAREN_PAT.match(s) is not None
-
-    rows_collected: list[tuple[str, str, list]] = []
-    detected_periods: list[str] = []
-    current_section = "נתונים כספיים"
-
-    # ── Strategy 1: PDF table extraction ──────────────────────────
-    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
-        for page in pdf.pages:
-            for table in (page.extract_tables() or []):
-                if not table:
-                    continue
-                first = [str(c or "").strip() for c in table[0]]
-                hdr_candidates = [c for c in first[1:] if c and PERIOD_PAT.search(c)]
-                if hdr_candidates and not detected_periods:
-                    detected_periods = [c for c in first[1:] if c]
-                    data_rows = table[1:]
-                else:
-                    data_rows = table
-                for row in data_rows:
-                    cells = [str(c or "").strip().replace("\n", " ") for c in row]
-                    label = next((c for c in cells if HEB.search(c) and len(c) > 1), None)
-                    if not label:
-                        continue
-                    nums = [v for v in (_float(c) for c in cells) if v is not None]
-                    if not nums:
-                        current_section = label
-                        continue
-                    rows_collected.append((current_section, label, nums))
-
-    # ── Strategy 2: word-position row reconstruction ──────────────
-    if not rows_collected:
-        current_section = "נתונים כספיים"
-        with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
-            for page in pdf.pages:
-                words = page.extract_words(
-                    x_tolerance=5, y_tolerance=4,
-                    keep_blank_chars=False, use_text_flow=False,
-                )
-                if not words:
-                    continue
-                y_rows: dict = defaultdict(list)
-                for w in words:
-                    bucket = round(w["top"] / 5) * 5
-                    y_rows[bucket].append(w)
-
-                for bucket in sorted(y_rows.keys()):
-                    row_words = sorted(y_rows[bucket], key=lambda w: w["x0"])
-                    texts = [w["text"].strip() for w in row_words if w["text"].strip()]
-                    if not texts:
-                        continue
-
-                    # Detect period header (2+ period tokens, no Hebrew)
-                    if not detected_periods:
-                        period_hits = [t for t in texts if PERIOD_PAT.search(t) and not HEB.search(t)]
-                        if len(period_hits) >= 2:
-                            detected_periods = texts
-                            continue
-
-                    heb_parts = [t for t in texts if HEB.search(t)]
-                    num_parts = [t for t in texts if _is_num(t)]
-
-                    if not heb_parts:
-                        continue
-                    label = " ".join(heb_parts)
-                    if not num_parts:
-                        if len(label) > 2:
-                            current_section = label
-                        continue
-                    nums = [v for v in (_float(t) for t in num_parts) if v is not None]
-                    if nums:
-                        rows_collected.append((current_section, label, nums))
-
-    # ── Strategy 3: line-by-line text parsing ─────────────────────
-    if not rows_collected:
-        current_section = "נתונים כספיים"
-        with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
-            for page in pdf.pages:
-                text = page.extract_text(x_tolerance=3, y_tolerance=3) or ""
-                for line in text.splitlines():
-                    line = line.strip()
-                    if not line:
-                        continue
-                    tokens = line.split()
-                    heb_parts = [t for t in tokens if HEB.search(t)]
-                    num_parts = [t for t in tokens if _is_num(t)]
-                    if not heb_parts:
-                        # Check if period header line
-                        if not detected_periods:
-                            period_hits = [t for t in tokens if PERIOD_PAT.search(t)]
-                            if len(period_hits) >= 2:
-                                detected_periods = period_hits
-                        continue
-                    label = " ".join(heb_parts)
-                    if not num_parts:
-                        if len(label) > 2:
-                            current_section = label
-                        continue
-                    nums = [v for v in (_float(t) for t in num_parts) if v is not None]
-                    if nums:
-                        rows_collected.append((current_section, label, nums))
-
-    if not rows_collected:
-        return None
-
-    # ── Build output ───────────────────────────────────────────────
-    widths = Counter(len(r[2]) for r in rows_collected)
-    target_width = widths.most_common(1)[0][0]
-
-    if detected_periods:
-        periods = [p for p in detected_periods if p][:target_width]
-        while len(periods) < target_width:
-            periods.append(f"עמודה {len(periods)+1}")
-    else:
-        periods = [f"עמודה {i+1}" for i in range(target_width)]
-
-    by_section: dict = defaultdict(list)
-    for sec, lbl, vals in rows_collected:
-        padded = (vals + [0] * target_width)[:target_width]
-        by_section[sec].append({"label": lbl, "values": padded})
-
-    sections = []
-    for sec_name, rows in by_section.items():
-        total = [sum(r["values"][i] for r in rows) for i in range(target_width)]
-        sections.append({
-            "name": sec_name,
-            "rows": rows,
-            "total_label": f'סה"כ {sec_name}',
-            "total": total,
-        })
-
-    return sections, periods
-
-
-def import_financials_from_maya(data: dict, company_id: str, sections: list, periods: list):
-    for c in data["companies"]:
-        if c["id"] == company_id:
-            c["financials"] = {
-                "periods": periods,
-                "sections": sections,
-                "maya_imported": True,
-            }
-            break
-    save_data(data)
+    text = snippet if snippet else title
+    m = re.search(re.escape(keyword), text, re.IGNORECASE)
+    if not m:
+        m = re.search(re.escape(keyword), title, re.IGNORECASE)
+        if m:
+            return title
+        return ""
+    start = max(0, m.start() - window // 2)
+    end   = min(len(text), m.end() + window // 2)
+    prefix = "…" if start > 0 else ""
+    suffix = "…" if end < len(text) else ""
+    return (prefix + text[start:end] + suffix).strip()
 
 
 def fetch_news_for_company(company: dict, max_age_days: int | None = 7) -> list:
@@ -381,6 +196,9 @@ def fetch_news_for_company(company: dict, max_age_days: int | None = 7) -> list:
     if not keywords:
         return []
 
+    import re as _re
+    import calendar
+
     _tbs_map = {1: "qdr:d", 7: "qdr:w", 30: "qdr:m"}
     tbs_param = f"&tbs={_tbs_map[max_age_days]}" if max_age_days in _tbs_map else ""
     cutoff = datetime.now() - timedelta(days=max_age_days) if max_age_days else None
@@ -388,41 +206,62 @@ def fetch_news_for_company(company: dict, max_age_days: int | None = 7) -> list:
     seen_titles: set[str] = set()
     items = []
 
-    for keyword in keywords:
-        url = (
-            f"https://news.google.com/rss/search?q={quote(keyword)}"
-            f"{tbs_param}&hl=iw&gl=IL&ceid=IL:iw"
-        )
+    def _is_hebrew(s: str) -> bool:
+        return any('א' <= c <= 'ת' for c in s)
+
+    # Search both Israeli Hebrew edition AND global English edition
+    def _edition_urls(kw: str) -> list[str]:
+        q = quote(kw)
+        urls = [f"https://news.google.com/rss/search?q={q}{tbs_param}&hl=en&gl=US&ceid=US:en"]
+        if _is_hebrew(kw):
+            urls.append(f"https://news.google.com/rss/search?q={q}{tbs_param}&hl=iw&gl=IL&ceid=IL:iw")
+        else:
+            # Also search Israeli edition for English keywords (Israeli companies get Hebrew coverage)
+            urls.append(f"https://news.google.com/rss/search?q={q}{tbs_param}&hl=iw&gl=IL&ceid=IL:iw")
+        return urls
+
+    from concurrent.futures import ThreadPoolExecutor
+
+    fetch_jobs = [(kw, url) for kw in keywords for url in _edition_urls(kw)]
+
+    def _fetch_one(job):
+        keyword, url = job
         try:
-            feed = feedparser.parse(url)
-            for entry in feed.entries:
-                title = entry.get("title", "").strip()
-                if not title or title in seen_titles:
-                    continue
-                seen_titles.add(title)
-                published = entry.get("published_parsed")
-                if published:
-                    import calendar
-                    ts_dt = datetime.fromtimestamp(calendar.timegm(published))
-                    if cutoff and ts_dt < cutoff:
-                        continue
-                    ts = ts_dt.isoformat()
-                else:
-                    ts = datetime.now().isoformat()
-                import re as _re
-                raw_summary = entry.get("summary", "") or entry.get("description", "")
-                snippet = _re.sub(r'<[^>]+>', '', raw_summary).strip()[:300] if raw_summary else ""
-                items.append({
-                    "title": title,
-                    "url": entry.get("link", ""),
-                    "timestamp": ts,
-                    "snippet": snippet,
-                })
+            return keyword, feedparser.parse(url).entries
         except Exception:
-            continue
+            return keyword, []
+
+    with ThreadPoolExecutor(max_workers=min(12, len(fetch_jobs) or 1)) as pool:
+        fetched = list(pool.map(_fetch_one, fetch_jobs))
+
+    # Process sequentially (in keyword order) so dedup/ordering stays deterministic.
+    for keyword, entries in fetched:
+        for entry in entries:
+            title = entry.get("title", "").strip()
+            if not title or title in seen_titles:
+                continue
+            seen_titles.add(title)
+            published = entry.get("published_parsed")
+            if published:
+                ts_dt = datetime.fromtimestamp(calendar.timegm(published))
+                if cutoff and ts_dt < cutoff:
+                    continue
+                ts = ts_dt.isoformat()
+            else:
+                ts = datetime.now().isoformat()
+            raw_summary = entry.get("summary", "") or entry.get("description", "")
+            snippet = _html.unescape(_re.sub(r'<[^>]+>', '', raw_summary).strip())[:300] if raw_summary else ""
+            items.append({
+                "title": title,
+                "url": entry.get("link", ""),
+                "timestamp": ts,
+                "snippet": snippet,
+                "matched_keyword": keyword,
+                "keyword_context": _find_keyword_context(title, snippet, keyword),
+            })
 
     items.sort(key=lambda x: x["timestamp"], reverse=True)
-    return items[:15]
+    return items[:60]
 
 
 def add_scan_source(data: dict, company_id: str, url: str):
@@ -443,12 +282,30 @@ def remove_scan_source(data: dict, company_id: str, url: str):
     save_data(data)
 
 
-def fetch_reddit_for_company(company: dict, max_age_days: int | None = 7) -> list:
+def _reddit_oauth_token(client_id: str, client_secret: str, user_agent: str) -> str | None:
+    import requests
+    try:
+        r = requests.post(
+            "https://www.reddit.com/api/v1/access_token",
+            auth=(client_id, client_secret),
+            data={"grant_type": "client_credentials"},
+            headers={"User-Agent": user_agent},
+            timeout=8,
+        )
+        return r.json().get("access_token") if r.ok else None
+    except Exception:
+        return None
+
+
+def fetch_reddit_for_company(company: dict, max_age_days: int | None = 7,
+                              reddit_client_id: str | None = None,
+                              reddit_client_secret: str | None = None) -> list:
     try:
         import requests
         import feedparser
         import re
         import time
+        import calendar
     except ImportError:
         return []
 
@@ -459,74 +316,200 @@ def fetch_reddit_for_company(company: dict, max_age_days: int | None = 7) -> lis
     _t_map = {1: "day", 7: "week", 30: "month"}
     t_param = _t_map.get(max_age_days, "year") if max_age_days else "all"
     cutoff = datetime.now() - timedelta(days=max_age_days) if max_age_days else None
+    ua = "chatzavim-dashboard/1.0 (analyst research tool)"
 
     session = requests.Session()
-    session.headers.update({
-        "User-Agent": (
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/120.0.0.0 Safari/537.36"
-        )
-    })
+    session.headers.update({"User-Agent": ua})
 
-    seen_titles: set[str] = set()
-    items = []
+    token = None
+    if reddit_client_id and reddit_client_secret:
+        token = _reddit_oauth_token(reddit_client_id, reddit_client_secret, ua)
 
-    # Limit to first 3 keywords; wrap in quotes for exact-phrase matching
-    for keyword in keywords[:3]:
-        q = f'"{keyword}"'
-        url = (
-            f"https://www.reddit.com/search.rss"
-            f"?q={quote(q)}&sort=new&t={t_param}&limit=25"
-        )
-        for attempt in range(2):
+    if token:
+        # OAuth apps get a much higher rate limit (~100 req/min) — safe to
+        # hit every keyword concurrently.
+        def _fetch_oauth(keyword):
+            url = f"https://oauth.reddit.com/search?q={quote(keyword)}&sort=new&t={t_param}&limit=25&raw_json=1"
             try:
-                resp = session.get(url, timeout=12)
-                if resp.status_code == 429:
-                    time.sleep(4)
-                    continue
-                if not resp.ok:
-                    break
-                feed = feedparser.parse(resp.content)
-                for entry in feed.entries:
-                    title = entry.get("title", "").strip()
-                    if not title or title in seen_titles:
-                        continue
-                    seen_titles.add(title)
+                r = session.get(url, headers={"Authorization": f"Bearer {token}"}, timeout=8)
+                if not r.ok:
+                    return keyword, []
+                posts = []
+                for child in r.json().get("data", {}).get("children", []):
+                    d = child.get("data", {})
+                    permalink = d.get("permalink", "")
+                    posts.append({
+                        "title": d.get("title", ""),
+                        "url": f"https://www.reddit.com{permalink}" if permalink else d.get("url", ""),
+                        "created_epoch": d.get("created_utc"),
+                        "body": d.get("selftext", ""),
+                        "subreddit": d.get("subreddit", ""),
+                    })
+                return keyword, posts
+            except Exception:
+                return keyword, []
 
-                    published = entry.get("published_parsed")
-                    if published:
-                        import calendar
-                        ts_dt = datetime.fromtimestamp(calendar.timegm(published))
-                        if cutoff and ts_dt < cutoff:
-                            continue
-                        ts = ts_dt.isoformat()
-                    else:
-                        ts = datetime.now().isoformat()
-
+        from concurrent.futures import ThreadPoolExecutor
+        jobs = keywords[:8]
+        with ThreadPoolExecutor(max_workers=min(6, len(jobs) or 1)) as pool:
+            fetched = list(pool.map(_fetch_oauth, jobs))
+    else:
+        # No API credentials: fall back to the anonymous RSS endpoint, which
+        # allows only ~1 request per ~45-60s per IP (verified live — every
+        # request past the first 429s immediately). Firing these concurrently
+        # or with a short retry just burns the budget on failures, so this
+        # runs strictly sequentially and waits out the real reset window
+        # reported by Reddit, capped to just the 2 highest-value keywords
+        # (the company itself + its primary competitor) to keep total wait
+        # time reasonable.
+        def _fetch_rss(keyword):
+            url = f"https://www.reddit.com/search.rss?q={quote(keyword)}&sort=new&t={t_param}&limit=25"
+            try:
+                r = session.get(url, timeout=8)
+                if r.status_code == 429:
+                    return [], int(r.headers.get("x-ratelimit-reset", "45") or 45)
+                if not r.ok:
+                    return [], 0
+                posts = []
+                for entry in feedparser.parse(r.content).entries:
                     subreddit = ""
                     if entry.get("tags"):
                         subreddit = entry["tags"][0].get("term", "").strip()
-
-                    raw_body = entry.get("summary", "")
-                    body = re.sub(r"<[^>]+>", " ", raw_body).strip()
-                    body = re.sub(r"\s+", " ", body)[:300]
-                    snippet = body if body else f"r/{subreddit}"
-
-                    items.append({
-                        "title": title,
+                    posts.append({
+                        "title": entry.get("title", ""),
                         "url": entry.get("link", ""),
-                        "timestamp": ts,
-                        "snippet": snippet,
+                        "published_parsed": entry.get("published_parsed"),
+                        "body": entry.get("summary", ""),
                         "subreddit": subreddit,
                     })
-                break
+                return posts, 0
             except Exception:
-                pass
-        time.sleep(2)
+                return [], 0
+
+        # Use two company-side keywords, never a competitor — a well-known
+        # competitor's own name (e.g. "Anduril") is so widely discussed on
+        # Reddit that it drowns the feed in generic unrelated noise, not
+        # anything about this company specifically. Also skip short all-caps
+        # tickers (e.g. "NXSN") when a better alternative exists — verified
+        # those mostly match random unrelated posts too.
+        competitor_kws = set(company.get("competitor_keywords", []))
+        company_side_kws = [k for k in keywords if k not in competitor_kws]
+        non_ticker = [k for k in company_side_kws if not re.match(r'^[A-Z]{2,6}$', k)]
+        ordered = non_ticker + [k for k in company_side_kws if k not in non_ticker]
+        jobs = ordered[:2]
+        if not jobs:
+            jobs = keywords[:2]
+
+        fetched = []
+        for i, keyword in enumerate(jobs):
+            posts, wait_s = _fetch_rss(keyword)
+            if not posts and wait_s:
+                time.sleep(min(wait_s + 1, 65))
+                posts, _ = _fetch_rss(keyword)
+            fetched.append((keyword, posts))
+
+    seen_titles: set[str] = set()
+    items = []
+    for keyword, posts in fetched:
+        for p in posts:
+            title = (p.get("title") or "").strip()
+            if not title or title in seen_titles:
+                continue
+            seen_titles.add(title)
+
+            if p.get("created_epoch"):
+                ts_dt = datetime.fromtimestamp(p["created_epoch"])
+            elif p.get("published_parsed"):
+                ts_dt = datetime.fromtimestamp(calendar.timegm(p["published_parsed"]))
+            else:
+                ts_dt = datetime.now()
+            if cutoff and ts_dt < cutoff:
+                continue
+            ts = ts_dt.isoformat()
+
+            raw_body = p.get("body", "")
+            body = _html.unescape(re.sub(r"<[^>]+>", " ", raw_body).strip())
+            body = re.sub(r"\s+", " ", body)[:300]
+            subreddit = p.get("subreddit", "")
+            snippet = body if body else f"r/{subreddit}"
+
+            # Skip results where the keyword doesn't actually appear in title or body
+            if keyword.lower() not in (title + " " + body).lower():
+                continue
+
+            items.append({
+                "title": title,
+                "url": p.get("url", ""),
+                "timestamp": ts,
+                "snippet": snippet,
+                "subreddit": subreddit,
+                "matched_keyword": keyword,
+                "keyword_context": _find_keyword_context(title, snippet, keyword),
+            })
 
     items.sort(key=lambda x: x["timestamp"], reverse=True)
-    return items[:20]
+    return items[:40]
+
+
+def _resolve_feed_entries(source_url: str, feedparser) -> tuple[list, str]:
+    """Return (entries, resolved_url). Tries RSS auto-discovery if direct parse yields nothing."""
+    import re
+    import requests
+    from urllib.parse import urljoin, urlparse
+
+    _ua = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"}
+
+    def _try(url: str):
+        try:
+            resp = requests.get(url, headers=_ua, timeout=8)
+            ct = resp.headers.get("content-type", "").lower()
+            if resp.ok and any(x in ct for x in ("xml", "rss", "atom")):
+                f = feedparser.parse(resp.content)
+                if f.entries:
+                    return f.entries
+        except Exception:
+            pass
+        try:
+            f = feedparser.parse(url)
+            if f.entries:
+                return f.entries
+        except Exception:
+            pass
+        return None
+
+    entries = _try(source_url)
+    if entries:
+        return entries, source_url
+
+    parsed = urlparse(source_url)
+    base = f"{parsed.scheme}://{parsed.netloc}"
+
+    # Discover RSS links from the page HTML
+    try:
+        resp = requests.get(source_url, headers=_ua, timeout=8)
+        if resp.ok and "html" in resp.headers.get("content-type", "").lower():
+            discovered = re.findall(
+                r'href=["\']([^"\']*(?:rss|feed|atom)[^"\']*)["\']',
+                resp.text, re.IGNORECASE,
+            )
+            for link in discovered[:5]:
+                candidate = urljoin(base, link)
+                if candidate != source_url:
+                    entries = _try(candidate)
+                    if entries:
+                        return entries, candidate
+    except Exception:
+        pass
+
+    # Try common RSS path patterns
+    for path in ["/rss/", "/rss", "/misc/rss", "/feed/", "/feed",
+                 "/rss.xml", "/atom.xml", "/feeds/all.rss"]:
+        candidate = urljoin(base, path)
+        entries = _try(candidate)
+        if entries:
+            return entries, candidate
+
+    return [], source_url
 
 
 def fetch_from_source_urls(company: dict, max_age_days: int | None = 7) -> list:
@@ -542,19 +525,19 @@ def fetch_from_source_urls(company: dict, max_age_days: int | None = 7) -> list:
     if not scan_sources:
         return []
 
+    keywords = company.get("keywords", [])
     cutoff = datetime.now() - timedelta(days=max_age_days) if max_age_days else None
     seen_titles: set[str] = set()
     items = []
 
     for source_url in scan_sources:
         try:
-            feed = feedparser.parse(source_url)
             domain = urlparse(source_url).netloc.replace("www.", "") or source_url[:30]
-            for entry in feed.entries:
+            entries, _ = _resolve_feed_entries(source_url, feedparser)
+            for entry in entries:
                 title = entry.get("title", "").strip()
                 if not title or title in seen_titles:
                     continue
-                seen_titles.add(title)
                 published = entry.get("published_parsed")
                 if published:
                     ts_dt = datetime.fromtimestamp(calendar.timegm(published))
@@ -564,13 +547,26 @@ def fetch_from_source_urls(company: dict, max_age_days: int | None = 7) -> list:
                 else:
                     ts = datetime.now().isoformat()
                 raw_summary = entry.get("summary", "") or entry.get("description", "")
-                snippet = re.sub(r'<[^>]+>', '', raw_summary).strip()[:300] if raw_summary else ""
+                snippet = _html.unescape(re.sub(r'<[^>]+>', '', raw_summary).strip())[:300] if raw_summary else ""
+
+                # Only keep items that actually mention one of the tracked keywords —
+                # a source like a general news homepage publishes mostly unrelated
+                # articles, so unfiltered inclusion buried real matches in noise.
+                search_text = (title + " " + snippet).lower()
+                matched_kw = next((kw for kw in keywords if kw.lower() in search_text), "")
+                if not matched_kw:
+                    continue
+
+                seen_titles.add(title)
+                keyword_ctx = _find_keyword_context(title, snippet, matched_kw)
                 items.append({
                     "title": title,
                     "url": entry.get("link", ""),
                     "timestamp": ts,
                     "snippet": snippet,
                     "source_domain": domain,
+                    "matched_keyword": matched_kw,
+                    "keyword_context": keyword_ctx,
                 })
         except Exception:
             continue

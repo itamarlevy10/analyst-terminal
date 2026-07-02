@@ -5,41 +5,147 @@
       "name": "NextVision",
       "ticker": "NXSN",
       "keywords": [
-        "NextVision", "נקסט ויז'ן", "NXSN",
-        "Anduril", "Uvision", "Blue UAS", "DAWG drone", "NDAA drone"
+        "NextVision",
+        "נקסט ויז'ן",
+        "NXSN",
+        "Anduril",
+        "Uvision",
+        "Blue UAS",
+        "DAWG drone",
+        "NDAA drone",
+        "Colibri2",
+        "HERO 120",
+        "HERO30",
+        "HERO 90",
+        "HERO 400",
+        "NextVision Falcon",
+        "NextVision Raven"
       ],
       "feeds": [],
       "scan_sources": [],
       "financials": {
-        "periods": ["2025 שנתי", "Q1 2025", "Q1 2026"],
+        "periods": [
+          "2025 שנתי",
+          "Q1 2025",
+          "Q1 2026"
+        ],
         "maya_imported": true,
         "sections": [
           {
             "name": "רווח והפסד",
             "rows": [
-              {"label": "הכנסות",                   "values": [168354, 36163, 67389]},
-              {"label": "עלות המכר",                "values": [-50798, -9675, -22094]},
-              {"label": "רווח גולמי",               "values": [117556, 26488, 45295]},
-              {"label": "הוצאות מו\"פ",             "values": [-5491,  -952,  -1793]},
-              {"label": "הוצאות מכירה והנהלה",      "values": [-10541, -3334, -5154]},
-              {"label": "רווח תפעולי",              "values": [101524, 22202, 38348]},
-              {"label": "רווח לפני מס",             "values": [114664, 24100, 44221]},
-              {"label": "רווח נקי",                 "values": [103664, 20573, 38263]}
+              {
+                "label": "הכנסות",
+                "values": [
+                  168354,
+                  36163,
+                  67389
+                ]
+              },
+              {
+                "label": "עלות המכר",
+                "values": [
+                  -50798,
+                  -9675,
+                  -22094
+                ]
+              },
+              {
+                "label": "רווח גולמי",
+                "values": [
+                  117556,
+                  26488,
+                  45295
+                ]
+              },
+              {
+                "label": "הוצאות מו\"פ",
+                "values": [
+                  -5491,
+                  -952,
+                  -1793
+                ]
+              },
+              {
+                "label": "הוצאות מכירה והנהלה",
+                "values": [
+                  -10541,
+                  -3334,
+                  -5154
+                ]
+              },
+              {
+                "label": "רווח תפעולי",
+                "values": [
+                  101524,
+                  22202,
+                  38348
+                ]
+              },
+              {
+                "label": "רווח לפני מס",
+                "values": [
+                  114664,
+                  24100,
+                  44221
+                ]
+              },
+              {
+                "label": "רווח נקי",
+                "values": [
+                  103664,
+                  20573,
+                  38263
+                ]
+              }
             ],
             "total_label": "רווח נקי",
-            "total": [103664, 20573, 38263]
+            "total": [
+              103664,
+              20573,
+              38263
+            ]
           },
           {
             "name": "מדדים תפעוליים",
             "rows": [
-              {"label": "צבר הזמנות",   "values": [0,      123200, 288600]},
-              {"label": "לקוחות פעילים","values": [0,      111,    112]}
+              {
+                "label": "צבר הזמנות",
+                "values": [
+                  0,
+                  123200,
+                  288600
+                ]
+              },
+              {
+                "label": "לקוחות פעילים",
+                "values": [
+                  0,
+                  111,
+                  112
+                ]
+              }
             ],
             "total_label": "צבר הזמנות",
-            "total": [0, 123200, 288600]
+            "total": [
+              0,
+              123200,
+              288600
+            ]
           }
         ]
-      }
+      },
+      "competitor_keywords": [
+        "Anduril",
+        "Uvision",
+        "Blue UAS",
+        "DAWG drone",
+        "NDAA drone",
+        "HERO 120",
+        "HERO30",
+        "HERO 90",
+        "HERO 400"
+      ]
     }
   ]
 }
