@@ -1,4 +1,4 @@
-# חצבים — Terminal Light · ערכת הטמעה ל-Streamlit (גישת iframe)
+# Analyst Terminal — Terminal Light · ערכת הטמעה ל-Streamlit (גישת iframe)
 
 **למה זה היה מכוער קודם:** רינדור HTML עם `st.markdown` נלחם ב-Streamlit — ה-parser הופך הזחות ל-code blocks, מוסיף `<p>` משלו, וה-CSS הגלובלי של Streamlit דורס את הסטיילים. 
 
@@ -6,18 +6,16 @@
 
 ## קבצים
 - **`render.py`** — ⭐ הכל כאן. הפונקציה הראשית: `page_html(...)` שמחזירה מסמך HTML שלם לטאב.
-- **`assets/hazavim-mark.png`** — לוגו (כותרת + טאב).
+  הלוגו (`_MARK_SVG`) הוא inline SVG בתוך `render.py` — אין תלות בקובץ תמונה חיצוני.
 
 ## app.py — שלד מלא להחלפת שכבת התצוגה
 ```python
-import base64
 import streamlit as st
 import streamlit.components.v1 as components
-from PIL import Image
 from streamlit_theme import render as R
 
-st.set_page_config(page_title="חצבים — דאשבורד אנליסט",
-                   page_icon=Image.open("streamlit_theme/assets/hazavim-mark.png"),
+st.set_page_config(page_title="Analyst Terminal — דאשבורד אנליסט",
+                   page_icon="📊",
                    layout="wide")
 
 # מסיר padding של Streamlit כך שה-iframe ממלא את הרוחב
@@ -57,7 +55,6 @@ if qp.get("m_title"):                                # טופס דיווח יד�
 
 company = get_company(data, active_id)
 fin     = company.get("financials", {})
-b64     = base64.b64encode(open("streamlit_theme/assets/hazavim-mark.png", "rb").read()).decode()
 
 # פריטי הפיד מסוננים לפי המקורות הפעילים (הלוגיקה הקיימת שלך)
 feed_items = [it for it in get_feed_items(company)
@@ -66,7 +63,7 @@ feed_items = [it for it in get_feed_items(company)
 html = R.page_html(
     tab=tab, companies=companies, active_id=active_id, company=company, fin=fin,
     feed_items=feed_items, active_src=active_src,
-    last_scan=last_scan_label(active_id), b64=b64,
+    last_scan=last_scan_label(active_id),
 )
 components.html(html, height=1300, scrolling=True)   # התאם height לפי הצורך
 ```

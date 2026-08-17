@@ -1,5 +1,5 @@
 """
-חצבים — Terminal Light · iframe renderer.
+Analyst Terminal — Terminal Light · iframe renderer.
 
 הרעיון: כל טאב מרונדר כ-*מסמך HTML שלם* בתוך st.components.v1.html (iframe).
 בתוך iframe ה-CSS של Streamlit לא מגיע — אז זה נראה בדיוק כמו המוקאפ.
@@ -85,14 +85,20 @@ _FOOT = "</div></body></html>"
 
 
 # ── building blocks ─────────────────────────────────────────────
-def _topbar(b64):
-    img = (f'<img src="data:image/png;base64,{b64}" style="width:21px;height:21px;object-fit:contain">'
-           if b64 else "ח")
+# Ascending-bars mark (monoline, matches the panel's geometric/mono aesthetic) —
+# drawn inline so the brand mark has no external asset/file dependency.
+_MARK_SVG = (
+    '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" '
+    f'stroke="{P["accent"]}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M4 19V13"/><path d="M11.5 19V8"/><path d="M19 19V4"/></svg>'
+)
+
+def _topbar():
     return f"""<div style="display:flex;align-items:center;justify-content:space-between;padding:0 18px;height:52px;background:{P['panel']};border:1px solid {P['border']};border-radius:10px;margin-bottom:8px">
 <div style="display:flex;align-items:center;gap:11px">
-<span style="width:32px;height:32px;border-radius:9px;background:#fff;border:1px solid {P['border_str']};display:flex;align-items:center;justify-content:center;overflow:hidden">{img}</span>
-<span style="font-size:17px;font-weight:800">חצבים</span>
-<span style="font-size:12px;color:{P['muted']};letter-spacing:.05em">RESEARCH&nbsp;TERMINAL</span></div>
+<span style="width:32px;height:32px;border-radius:9px;background:#fff;border:1px solid {P['border_str']};display:flex;align-items:center;justify-content:center;overflow:hidden">{_MARK_SVG}</span>
+<span style="font-size:17px;font-weight:800">Analyst</span>
+<span style="font-size:12px;color:{P['muted']};letter-spacing:.05em">TERMINAL</span></div>
 <div class="mono" style="font-size:12px;color:{P['sec']}">{datetime.now().strftime('%H:%M')}&nbsp;IL</div></div>"""
 
 
@@ -278,10 +284,10 @@ def _add_manual(co_id):
 
 # ════════════ הפונקציה הראשית — מסמך מלא לטאב ════════════
 def page_html(tab, companies, active_id, company, bs_kpis,
-              feed_items, active_src, last_scan="", b64="", age="all",
+              feed_items, active_src, last_scan="", age="all",
               classify=classify_keyword, scanning=False):
     """מחזיר מסמך HTML שלם להעברה ל-st.components.v1.html(page_html(...), height=...)."""
-    parts = [_HEAD, _topbar(b64), _strip(companies, active_id, tab), _tabs(tab, active_id)]
+    parts = [_HEAD, _topbar(), _strip(companies, active_id, tab), _tabs(tab, active_id)]
     if tab == "feed":
         parts.append(_kpi(bs_kpis))
         parts.append('<div style="display:flex;gap:18px;align-items:flex-start;margin-top:4px">')

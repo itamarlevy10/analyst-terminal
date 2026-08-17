@@ -316,7 +316,7 @@ def fetch_reddit_for_company(company: dict, max_age_days: int | None = 7,
     _t_map = {1: "day", 7: "week", 30: "month"}
     t_param = _t_map.get(max_age_days, "year") if max_age_days else "all"
     cutoff = datetime.now() - timedelta(days=max_age_days) if max_age_days else None
-    ua = "chatzavim-dashboard/1.0 (analyst research tool)"
+    ua = "analyst-terminal/1.0 (analyst research tool)"
 
     session = requests.Session()
     session.headers.update({"User-Agent": ua})

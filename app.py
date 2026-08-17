@@ -1,16 +1,14 @@
 """
-חצבים — דאשבורד אנליסט
+Analyst Terminal — דאשבורד אנליסט
 שכבת תצוגה: streamlit_theme/render.py (iframe)
 שכבת נתונים: utils/data_manager.py
 """
-import base64
 import json
 import uuid
 from datetime import datetime, timedelta
 
 import streamlit as st
 import streamlit.components.v1 as components
-from PIL import Image
 
 from streamlit_theme import render as R
 from utils.data_manager import (
@@ -25,8 +23,8 @@ from utils.data_manager import (
 
 # ── Page config ───────────────────────────────────────────────
 st.set_page_config(
-    page_title="חצבים — דאשבורד אנליסט",
-    page_icon=Image.open("streamlit_theme/assets/hazavim-mark.png"),
+    page_title="Analyst Terminal — דאשבורד אנליסט",
+    page_icon="📊",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
@@ -201,11 +199,6 @@ def _prep_feed_items(items):
         result.append(it)
     return result
 
-# ── Logo b64 ──────────────────────────────────────────────────
-b64 = base64.b64encode(
-    open("streamlit_theme/assets/hazavim-mark.png", "rb").read()
-).decode()
-
 # ── Iframe height by tab ──────────────────────────────────────
 _iframe_height = {"feed": 1600, "fin": 190, "settings": 220}.get(tab, 1400)
 
@@ -276,7 +269,6 @@ html = R.page_html(
     feed_items=feed_items,
     active_src=active_src,
     last_scan=_last_scan_label(),
-    b64=b64,
     age=age,
     classify=classify,
     scanning=scanning,
@@ -524,7 +516,7 @@ elif tab == "settings":
     with ce1:
         all_json = json.dumps(data, ensure_ascii=False, indent=2)
         st.download_button("⬇️ ייצוא כל הנתונים (JSON)", data=all_json.encode("utf-8"),
-                           file_name="chatzavim_data.json", mime="application/json",
+                           file_name="analyst_terminal_export.json", mime="application/json",
                            use_container_width=True)
     with ce2:
         uploaded_json = st.file_uploader("📥 ייבוא נתונים (JSON)", type=["json"], key="import_json")
@@ -539,4 +531,20 @@ elif tab == "settings":
                 st.error(f"שגיאה בייבוא: {e}")
 
     st.divider()
-    st.caption("גרסה 1.0 · חצבים דאשבורד אנליסט · בנוי עם Streamlit")
+    with st.expander("ℹ️ אודות הפרויקט"):
+        st.markdown(
+            "**Analyst Terminal** הוא פרויקט אישי — טרמינל מחקר לאנליסטים למעקב אחר "
+            "חברות ציבוריות, שנבנה מאפס כדי להדגים כמה יכולות הנדסיות יחד:\n\n"
+            "- **חילוץ דוחות כספיים מ-PDF עם Claude** — מעלים דוח מאזן, ומודל שפה קורא "
+            "אותו וממפה אותו אוטומטית לשדות מובנים, כולל בדיקות תקינות ואיתור כפילויות/סתירות.\n"
+            "- **איסוף מודיעין רב-מקורי** — Google News, Reddit, פידי RSS מותאמים אישית ודיווחים "
+            "ידניים, עם סיווג אוטומטי לחברה מול מתחרים וסינון לפי גיל וזמינות.\n"
+            "- **מנוע תצוגה RTL בעברית מבוסס iframe** — נבנה במיוחד כדי לעקוף את מגבלות "
+            "ה-CSS של Streamlit ולהשיג עיצוב טרמינל פיננסי מלא ותומך-כיווניות.\n"
+            "- **ייצוא לאקסל בפורמט אנליסט מקצועי**, טבלאות דוחות כספיים הניתנות לעריכה, "
+            "וגיבוי/ייבוא מלא של הנתונים כ-JSON.\n\n"
+            "הפרויקט אינו קשור לחברה או מעסיק כלשהו — הנתונים המוצגים הם דוגמת דמו "
+            "על בסיס דיווחים ציבוריים. נבנה כדי להראות יכולת engineering מקצה לקצה: "
+            "עיבוד נתונים, אינטגרציית LLM, ועיצוב ממשק."
+        )
+    st.caption("גרסה 1.0 · Analyst Terminal · בנוי עם Streamlit")
