@@ -8,26 +8,173 @@
         "NextVision",
         "נקסט ויז'ן",
         "NXSN",
-        "Anduril",
         "Uvision",
         "Blue UAS",
         "DAWG drone",
         "NDAA drone",
-        "Colibri2",
         "HERO 120",
         "HERO30",
         "HERO 90",
         "HERO 400",
         "NextVision Falcon",
-        "NextVision Raven"
+        "NextVision Raven",
+        "anduril altius"
       ],
-      "feeds": [],
-      "scan_sources": [],
+      "feeds": [
+        {
+          "id": "nv0001a1",
+          "source": "manual",
+          "title": "מעקב מתחרות: אנדוריל (Anduril) מרחיבה פעילות בישראל",
+          "url": "",
+          "notes": "מעקב מתחרות",
+          "snippet": "אנדוריל, אחת המתחרות הגלובליות המובילות בתחום הדיפנס-טק והרחפנים, מדווחת בתקשורת הישראלית על גיוסי כוח אדם ובחינת הקמת פעילות מקומית — רלוונטי למעקב תחרותי מול NextVision בתחום מערכות הזיהוי והיירוט.",
+          "matched_keyword": "anduril altius",
+          "keyword_context": "",
+          "timestamp": "2026-07-18T10:00:00"
+        },
+        {
+          "id": "nv0001a2",
+          "source": "manual",
+          "title": "מעקב מתחרות: UVision בוחנת הנפקה ב-Nasdaq",
+          "url": "",
+          "notes": "מעקב מתחרות",
+          "snippet": "UVision, יצרנית תחמושת משוטטת מתחרה, דווחה כבוחנת הנפקה בבורסת Nasdaq — כדאי לעקוב אחר השפעה אפשרית על תמחור השוק הפרטי בסקטור.",
+          "matched_keyword": "Uvision",
+          "keyword_context": "",
+          "timestamp": "2026-07-19T14:30:00"
+        },
+        {
+          "id": "b2dc6ff6",
+          "source": "google",
+          "title": "אנדוריל שוקלת הקמת מרכז בישראל - Israel Defense",
+          "url": "https://news.google.com/rss/articles/CBMiVEFVX3lxTE1ZUkFjVVNxQlpQRVNhYXUxMVZnZVhqcDZMbTJMUEs0LVQxTkc1X1BURHQ0RWQ2NHE0ZDZ6UnpyNllaX3pPWkdYczhXajVfcEROYUVOWA?oc=5",
+          "notes": "",
+          "snippet": "אנדוריל שוקלת הקמת מרכז בישראל&nbsp;&nbsp;Israel Defense",
+          "matched_keyword": "Anduril",
+          "keyword_context": "",
+          "timestamp": "2026-06-24T17:05:37"
+        },
+        {
+          "id": "90c86716",
+          "source": "google",
+          "title": "Anduril מרחיבה את חיפוש המנהל בישראל, אמיר אבולעפיה מצטרף לרשימת המועמדים - Traders Union",
+          "url": "https://news.google.com/rss/articles/CBMipAFBVV95cUxOR1VwUDFJMXpJYzJxSmI3TjhFSjEyM2F5ZEpERUJoMDRCeTlpVU9yNkRxWVh3MUZzUXAzNEItTUhPQmpsa0tCc2ZRQUJETUIyRmZqTWpwUFRBd1ZQaUZabmxBRFpSNXpacnVFY0FkaGxaRWJfeE9Kc2JkbnA5RnJzWmswMVQtS040WnFKVDhJUjRRY0NFcmxpMHlNZ1JFWjVVVFdueQ?oc=5",
+          "notes": "",
+          "snippet": "Anduril מרחיבה את חיפוש המנהל בישראל, אמיר אבולעפיה מצטרף לרשימת המועמדים&nbsp;&nbsp;Traders Union",
+          "matched_keyword": "Anduril",
+          "keyword_context": "Anduril מרחיבה את חיפוש המנהל בישראל, אמיר אבולעפיה מצטרף לרשימת המועמדים&nbsp;&nbsp;Traders Unio…",
+          "timestamp": "2026-06-24T21:57:27"
+        },
+        {
+          "id": "f9f119c7",
+          "source": "google",
+          "title": "ענקית הדיפנס־טק אנדוריל בדרך לפתיחת פעילות עסקית בישראל - TheMarker",
+          "url": "https://news.google.com/rss/articles/CBMiqgFBVV95cUxPNF9jeno3aEJMVTZiUW5QZ2dkaHhlUC14X1ZaS1dQZHRGYmZQazk1Nk94N0drYzFsMGdFbmJ3a0lBaGlVVjJYekNLSjdPbFlmNVRmaGhuUW94YTA1X2pXTFBpVVFVUjNrRmQ2UGU2VmtfREZ2bnJBTC1NelNEQnd4eU5vWEFvRmxZWm5EU05taW9OeEJrMVRvblZUSjlCNnJqb0FnRWpaS25wQQ?oc=5",
+          "notes": "",
+          "timestamp": "2026-06-21T14:04:00"
+        },
+        {
+          "id": "d1d911a5",
+          "source": "google",
+          "title": "חברת הדיפנס טק הלוהטת בדרך לישראל: אנדוריל מגייסת מנהל לפעילות מקומית - calcalist",
+          "url": "https://news.google.com/rss/articles/CBMia0FVX3lxTFAxWi0tMG5jS1FUWG4tQXo3clVyamdUOGkwR3ZoeDZteVAyTjdsZGdGQV9vWk00UEgxeWM4bVgwRVByU3V1VFY3amYzdTh4M2JvTnM4eHplZW5wXzNfT1UzZXRSUkU0S1FrSzBF?oc=5",
+          "notes": "",
+          "timestamp": "2026-06-21T16:17:00"
+        },
+        {
+          "id": "9551a7ad",
+          "source": "google",
+          "title": "Anduril to set up Israel operations - גלובס",
+          "url": "https://news.google.com/rss/articles/CBMiaEFVX3lxTE5aU3pDWHgyTlAybXJfNWxrcWJmaUQ0Vjk2OWlqYUxXX2JvTHVJZnNZcDhrSGVkU2ROQS1YalJTLXNnaDhBMFFwVFlEdHF0T1FKSzJBYWdyQW9LRW0tMUhCMS01aV9WNXRY?oc=5",
+          "notes": "",
+          "timestamp": "2026-06-22T04:55:46"
+        },
+        {
+          "id": "4dd5b1ba",
+          "source": "google",
+          "title": "Aaron Frenkel’s suicide drone co UVision plans Nasdaq IPO - גלובס",
+          "url": "https://news.google.com/rss/articles/CBMiaEFVX3lxTE1mbDl1Y3VtM3pWWVhCRGYtTmVEYkt4Xzh2cTVOUnFKeVBVUkdDZ0I2QkE2TmloNVFpYVZ4TllObjBZTDUxUEp1M3MyOGlHZlc3dkw4b1lyWHRDU2YwOTRBeDFoWDB2RUVY?oc=5",
+          "notes": "",
+          "timestamp": "2026-06-22T04:55:47"
+        },
+        {
+          "id": "970fd07e",
+          "source": "google",
+          "title": "אנדוריל מתכננת להקים מפעל בישראל ומחזרת אחר מח\"א לשעבר - גלובס",
+          "url": "https://news.google.com/rss/articles/CBMiaEFVX3lxTFBtVVo4cktMVGRCUUFFTElzczdvZVZiSEdweHJHNWRiaDk2d2gwM2plbk81SVdkd1NUZXF5S1JCWnZEdHRJUTVvVHk0LWc5OGZRaEl2cmU5YkVYUUZJYlF6bDBPcnMxc1B3?oc=5",
+          "notes": "",
+          "timestamp": "2026-06-22T17:31:46"
+        },
+        {
+          "id": "9f60d381",
+          "source": "google",
+          "title": "נעילה בבורסת ת\"א: מניות הבנייה נפלו ב-2.3%, נקסט ויז'ן איבדה 5.3% - calcalist",
+          "url": "https://news.google.com/rss/articles/CBMiYkFVX3lxTFBnb3FRdk84bnNTYXpGbTItT1RnWWhCMmdLZXBySDNhbkRFeE5zWjFZcXhoSGxkbk5BUWMzSUpSVkJoazNOREhlZ0ZTa2JmTk5fYTNnOTgyVFcwM3BjZFVvU2tR?oc=5",
+          "notes": "",
+          "timestamp": "2026-06-22T18:47:38"
+        },
+        {
+          "id": "6de85309",
+          "source": "google",
+          "title": "רוכב על הטרנד? רמי לוי ינסה להנפיק חברת רחפנים לפי שווי 75 מיליון שקל - TheMarker",
+          "url": "https://news.google.com/rss/articles/CBMiowFBVV95cUxNRUZsQk1QLVV0aER1aEI2WU5kR1Nxdm9IU1RSVHp4b184Vklxay1DeVJFeUJqTkRvTXZ5RXBQZmNnY2xXQWFReUR6azR0X20xekFfQ2xDVjJoSjJfeHBqbUkweHNoemJObGhxblpyb0Vzam44T1liZm9ZVDhmZzRzSnBQeVJBOTRTaW0wSGNyd3JGWUEwU3Z5em42alFCcEJRU2E4?oc=5",
+          "notes": "",
+          "timestamp": "2026-06-23T18:01:00"
+        },
+        {
+          "id": "7c39296b",
+          "source": "google",
+          "title": "נקסט ויז'ן - ספונסר",
+          "url": "https://news.google.com/rss/articles/CBMidkFVX3lxTFBtb3ZWcXZqR0p1VHJ4Qk1rcmFWZkdaTURTTjAxSV9XNHNrc2JSa2RybzJfcGktWlZCMXNEQWxYYW1XOE5wSWNkRWRPYmpmdjlhZVlyQlluR2NXbVBiZE5ISXN2VUs3R19RX01kUUxVWkRYZVJUWnc?oc=5",
+          "notes": "",
+          "timestamp": "2026-06-25T15:17:04"
+        },
+        {
+          "id": "e2d52811",
+          "source": "google",
+          "title": "היפוך מגמה בנעילה: המדדים איבדו 1.2%; פלסאנמור צנחה 53%, נקסט ויז'ן כ-7% - ביזפורטל",
+          "url": "https://news.google.com/rss/articles/CBMicEFVX3lxTFA1V1RvS2hRcWVubTZmNkpYS01YWG1HbE1WUGhocXh2czdsNlozSkJrZmJZWFFsR1I2dU5LbjZ4UnAtbHc4SktkXy1nMm4yWnRYYVlfQW9ubklmcEVjT2RIUGtHcUVIRjVzdEp5OHBCMkQ?oc=5",
+          "notes": "",
+          "timestamp": "2026-06-25T17:30:00"
+        },
+        {
+          "id": "97c2bf61",
+          "source": "google",
+          "title": "תל אביב ננעלה בירידות, בהובלת מניות הטכנולוגיה - גלובס",
+          "url": "https://news.google.com/rss/articles/CBMiaEFVX3lxTFA5cjBxOS1xR1Z5cDR1V05WdEY4OGtlT1lYU1RnMFBQTXVhanFfcVlIckJselhzemFibXZNRGNYeHFNMEJZS09tR1ZjZzRuS09IVE5qZHJhS3pOa0NvOEw0azhFTkdRd3hj?oc=5",
+          "notes": "",
+          "timestamp": "2026-06-25T17:48:20"
+        },
+        {
+          "id": "a719ffbd",
+          "source": "google",
+          "title": "הירידות התמתנו בסיום - הביטחוניות איבדו כ-1.9%, הבנקים עלו - ביזפורטל",
+          "url": "https://news.google.com/rss/articles/CBMicEFVX3lxTFBIYnAwV1Q3c0kzSlBwQm9wbjJkZURSalBrR0NZNmZnQ0pheUdmdEhZOUtyLXBqTDVNSW9NZTdNdTNsYk9VQ1lnMTRma003R3FsWDl2ajFuZFVSZmdHcFNtVmJLY3FjWDVCOFRGLVFLaEg?oc=5",
+          "notes": "",
+          "timestamp": "2026-06-26T13:49:00"
+        },
+        {
+          "id": "5a2413ea",
+          "source": "google",
+          "title": "נעילה שלילית בבורסת ת\"א, שמאבדת החודש 10% - calcalist",
+          "url": "https://news.google.com/rss/articles/CBMiYkFVX3lxTE5PVmM2N19BU3ZXektWY0JaQ05fVWdrdGo0a212Z2NsZldRUGlHZTNFWGNHdURQd2hVYkoxaHRhYkMxcW9Fd1RuTlFDbVBmRjRma0MzZVQxYXFfQThHV0N2R1l3?oc=5",
+          "notes": "",
+          "timestamp": "2026-06-26T14:27:07"
+        },
+        {
+          "id": "6ce0cb11",
+          "source": "google",
+          "title": "המלחמה מתקררת, והזרים פועלים: שתי מניות הביטחון שיצאו מהאופנה - ice.co.il",
+          "url": "https://news.google.com/rss/articles/CBMiX0FVX3lxTE9PVFZ4TXp0ZFB6QU14eFNUbG96UFl1aDFlV3ZOTXBadGMyQjd1eG1GcGNBZ0hwVGFVU1p5QkljeHNFZTh2R3NGQzhIb2JFZVUyd1BjM2NlNlhyNXExVlYw?oc=5",
+          "notes": "",
+          "timestamp": "2026-06-28T13:43:50"
+        }
+      ],
       "financials": {
         "periods": [
           "2025 שנתי",
           "Q1 2025",
-          "Q1 2026"
+          "Q3-2025"
         ],
         "maya_imported": true,
         "sections": [
@@ -39,7 +186,7 @@
                 "values": [
                   168354,
                   36163,
-                  67389
+                  120533
                 ]
               },
               {
@@ -47,7 +194,7 @@
                 "values": [
                   -50798,
                   -9675,
-                  -22094
+                  -34971
                 ]
               },
               {
@@ -55,7 +202,7 @@
                 "values": [
                   117556,
                   26488,
-                  45295
+                  85562
                 ]
               },
               {
@@ -63,7 +210,7 @@
                 "values": [
                   -5491,
                   -952,
-                  -1793
+                  -3914
                 ]
               },
               {
@@ -71,7 +218,7 @@
                 "values": [
                   -10541,
                   -3334,
-                  -5154
+                  -8144
                 ]
               },
               {
@@ -79,7 +226,7 @@
                 "values": [
                   101524,
                   22202,
-                  38348
+                  73498
                 ]
               },
               {
@@ -87,7 +234,7 @@
                 "values": [
                   114664,
                   24100,
-                  44221
+                  80432
                 ]
               },
               {
@@ -95,7 +242,7 @@
                 "values": [
                   103664,
                   20573,
-                  38263
+                  71964
                 ]
               }
             ],
@@ -103,7 +250,7 @@
             "total": [
               103664,
               20573,
-              38263
+              0
             ]
           },
           {
@@ -114,7 +261,7 @@
                 "values": [
                   0,
                   123200,
-                  288600
+                  124000
                 ]
               },
               {
@@ -122,7 +269,7 @@
                 "values": [
                   0,
                   111,
-                  112
+                  189
                 ]
               }
             ],
@@ -130,13 +277,17 @@
             "total": [
               0,
               123200,
-              288600
+              0
             ]
           }
         ]
       },
+      "scan_sources": [
+        "https://www.themarker.com/",
+        "https://www.globes.co.il/",
+        "https://www.defenseone.com/"
+      ],
       "competitor_keywords": [
-        "Anduril",
         "Uvision",
         "Blue UAS",
         "DAWG drone",
@@ -144,7 +295,8 @@
         "HERO 120",
         "HERO30",
         "HERO 90",
-        "HERO 400"
+        "HERO 400",
+        "anduril altius"
       ],
       "balance_sheet_extractions": [
         {
@@ -275,6 +427,251 @@
           },
           "currency": "USD",
           "units": "thousands"
+        },
+        {
+          "company": "NextVision",
+          "period_end": "2026-03-31",
+          "period_type": "quarterly_standalone",
+          "period_length_months": 3,
+          "source_report_date": "2026-05-10",
+          "source_reference": "1740447.pdf",
+          "fields": {
+            "cash": 27968,
+            "short_term_deposits": 514399,
+            "pledged_deposit": null,
+            "trade_receivables": 26056,
+            "other_receivables": 5909,
+            "income_tax_receivable": 953,
+            "inventory": 61979,
+            "total_current_assets": 637264,
+            "deferred_tax_assets": null,
+            "fixed_assets": 1111,
+            "right_of_use_assets": 4409,
+            "intangible_assets": 6178,
+            "goodwill": null,
+            "total_non_current_assets": 11698,
+            "total_assets": 648962,
+            "trade_payables": 10030,
+            "income_tax_payable": null,
+            "other_payables": 22123,
+            "dividend_payable": null,
+            "current_grant_liabilities": null,
+            "current_lease_liabilities": null,
+            "total_current_liabilities": 32153,
+            "grant_liabilities": null,
+            "lease_liabilities": 4826,
+            "deferred_tax_liabilities": 722,
+            "total_non_current_liabilities": 5699,
+            "total_liabilities": null,
+            "equity": 611110,
+            "equity_ratio": null,
+            "total_liabilities_and_equity": 648962,
+            "balance_check": 0
+          },
+          "currency": "USD",
+          "units": "thousands"
+        }
+      ]
+    },
+    {
+      "id": "teva",
+      "name": "Teva",
+      "ticker": "TEVA",
+      "keywords": [
+        "Teva",
+        "טבע",
+        "TEVA",
+        "Teva Pharmaceutical Industries",
+        "Copaxone",
+        "Austedo",
+        "Ajovy",
+        "Viatris",
+        "Mylan",
+        "Sandoz",
+        "Dr. Reddy's",
+        "Amneal Pharmaceuticals"
+      ],
+      "competitor_keywords": [
+        "Viatris",
+        "Mylan",
+        "Sandoz",
+        "Dr. Reddy's",
+        "Amneal Pharmaceuticals"
+      ],
+      "feeds": [
+        {
+          "id": "te0001a1",
+          "source": "manual",
+          "title": "פתיחת מעקב: טבע — יצרנית התרופות הגנריות הגדולה בעולם",
+          "url": "",
+          "notes": "כיסוי ראשוני",
+          "snippet": "טבע נסחרת הן ב-NYSE (TEVA) והן בבורסה בת\"א. תיק המוצרים כולל תרופות גנריות וגם מותגים ייחודיים כמו Copaxone, Austedo ו-Ajovy. מעקב מתמקד בקצב הפחתת המינוף ובצמיחת קו המוצרים הייחודיים.",
+          "matched_keyword": "Teva",
+          "keyword_context": "",
+          "timestamp": "2026-07-20T09:15:00"
+        },
+        {
+          "id": "te0001a2",
+          "source": "manual",
+          "title": "תזכורת: להשוות רבעונית מול Viatris ו-Sandoz (נתח שוק גנרי)",
+          "url": "",
+          "notes": "מעקב מתחרות",
+          "snippet": "שלוש השחקניות הגדולות בשוק הגנרי הגלובלי — טבע, Viatris ו-Sandoz — מתחרות על תמחור ונתח שוק בארה\"ב ואירופה. כדאי להשוות מגמות רווחיות גולמית.",
+          "matched_keyword": "Sandoz",
+          "keyword_context": "",
+          "timestamp": "2026-07-22T11:40:00"
+        }
+      ],
+      "scan_sources": [
+        "https://www.globes.co.il/",
+        "https://www.calcalist.co.il/",
+        "https://www.fiercepharma.com/"
+      ],
+      "financials": {
+        "periods": [
+          "2023",
+          "2024",
+          "2025E",
+          "H1-24",
+          "H2-24",
+          "H1-25",
+          "Q1-25",
+          "Q1-26"
+        ],
+        "sections": []
+      },
+      "balance_sheet_extractions": [
+        {
+          "company": "Teva",
+          "period_end": "2025-06-30",
+          "period_type": "quarterly_cumulative",
+          "period_length_months": 6,
+          "source_report_date": "2025-08-05",
+          "source_reference": "teva_h1_2025_6-k.pdf",
+          "fields": {
+            "cash": 2350,
+            "short_term_deposits": null,
+            "pledged_deposit": null,
+            "trade_receivables": 2450,
+            "other_receivables": 850,
+            "income_tax_receivable": 120,
+            "inventory": 2600,
+            "total_current_assets": 8370,
+            "deferred_tax_assets": null,
+            "fixed_assets": 2850,
+            "right_of_use_assets": 650,
+            "intangible_assets": 8600,
+            "goodwill": 9550,
+            "total_non_current_assets": 21650,
+            "total_assets": 30020,
+            "trade_payables": 1950,
+            "income_tax_payable": null,
+            "other_payables": 3600,
+            "dividend_payable": null,
+            "current_grant_liabilities": null,
+            "current_lease_liabilities": null,
+            "total_current_liabilities": 5550,
+            "grant_liabilities": null,
+            "lease_liabilities": 600,
+            "deferred_tax_liabilities": 1450,
+            "total_non_current_liabilities": 20500,
+            "total_liabilities": null,
+            "equity": 3970,
+            "equity_ratio": 0.1322,
+            "total_liabilities_and_equity": 30020,
+            "balance_check": 0,
+            "long_term_debt": 18450
+          },
+          "currency": "USD",
+          "units": "millions"
+        },
+        {
+          "company": "Teva",
+          "period_end": "2025-09-30",
+          "period_type": "quarterly_cumulative",
+          "period_length_months": 9,
+          "source_report_date": "2025-11-06",
+          "source_reference": "teva_q3_2025_6-k.pdf",
+          "fields": {
+            "cash": 2480,
+            "short_term_deposits": null,
+            "pledged_deposit": null,
+            "trade_receivables": 2500,
+            "other_receivables": 830,
+            "income_tax_receivable": 110,
+            "inventory": 2550,
+            "total_current_assets": 8470,
+            "deferred_tax_assets": null,
+            "fixed_assets": 2870,
+            "right_of_use_assets": 630,
+            "intangible_assets": 8450,
+            "goodwill": 9550,
+            "total_non_current_assets": 21500,
+            "total_assets": 29970,
+            "trade_payables": 1900,
+            "income_tax_payable": null,
+            "other_payables": 3550,
+            "dividend_payable": null,
+            "current_grant_liabilities": null,
+            "current_lease_liabilities": null,
+            "total_current_liabilities": 5450,
+            "grant_liabilities": null,
+            "lease_liabilities": 580,
+            "deferred_tax_liabilities": 1430,
+            "total_non_current_liabilities": 19850,
+            "total_liabilities": null,
+            "equity": 4670,
+            "equity_ratio": 0.1558,
+            "total_liabilities_and_equity": 29970,
+            "balance_check": 0,
+            "long_term_debt": 17840
+          },
+          "currency": "USD",
+          "units": "millions"
+        },
+        {
+          "company": "Teva",
+          "period_end": "2025-12-31",
+          "period_type": "annual",
+          "period_length_months": 12,
+          "source_report_date": "2026-02-12",
+          "source_reference": "teva_fy2025_20-f.pdf",
+          "fields": {
+            "cash": 2600,
+            "short_term_deposits": null,
+            "pledged_deposit": null,
+            "trade_receivables": 2420,
+            "other_receivables": 800,
+            "income_tax_receivable": 100,
+            "inventory": 2500,
+            "total_current_assets": 8420,
+            "deferred_tax_assets": null,
+            "fixed_assets": 2900,
+            "right_of_use_assets": 610,
+            "intangible_assets": 8300,
+            "goodwill": 9550,
+            "total_non_current_assets": 21360,
+            "total_assets": 29780,
+            "trade_payables": 1870,
+            "income_tax_payable": null,
+            "other_payables": 3500,
+            "dividend_payable": null,
+            "current_grant_liabilities": null,
+            "current_lease_liabilities": null,
+            "total_current_liabilities": 5370,
+            "grant_liabilities": null,
+            "lease_liabilities": 560,
+            "deferred_tax_liabilities": 1410,
+            "total_non_current_liabilities": 19200,
+            "total_liabilities": null,
+            "equity": 5210,
+            "equity_ratio": 0.1749,
+            "total_liabilities_and_equity": 29780,
+            "balance_check": 0,
+            "long_term_debt": 17230
+          },
+          "currency": "USD",
+          "units": "millions"
         }
       ]
     }

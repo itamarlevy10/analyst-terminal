@@ -46,7 +46,7 @@ def money_M(x, currency="ILS", units="thousands"):
     try:
         symbol = _CURRENCY_SYMBOLS.get(currency, currency + " ")
         scaled = x / 1000 if units == "thousands" else x
-        return f"{symbol}{scaled:.1f}M"
+        return f"{symbol}{scaled:,.1f}M"
     except Exception:
         return "—"
 
@@ -282,6 +282,20 @@ def _add_manual(co_id):
 </form></details>"""
 
 
+def _scanning_banner():
+    """Prominent centered indicator shown at the top of the feed list while a
+    scan is running server-side (see app.py's comment on why the iframe with
+    stale results renders first) — reuses the `spin` keyframe already defined
+    in _HEAD so no extra CSS is needed."""
+    return (f'<div style="text-align:center;padding:26px 16px;margin-bottom:14px;'
+            f'background:{P["stat"]};border:1px dashed {P["border_str"]};border-radius:10px">'
+            f'<div style="width:34px;height:34px;margin:0 auto 10px;border:3px solid {P["border_str"]};'
+            f'border-top-color:{P["accent"]};border-radius:50%;animation:spin .8s linear infinite"></div>'
+            f'<div style="font-size:14.5px;font-weight:800;color:{P["ink"]}">סורק את האינטרנט…</div>'
+            f'<div class="mono" style="font-size:11px;color:{P["muted"]};margin-top:4px;letter-spacing:.1em">SCANNING</div>'
+            f'</div>')
+
+
 # ════════════ הפונקציה הראשית — מסמך מלא לטאב ════════════
 def page_html(tab, companies, active_id, company, bs_kpis,
               feed_items, active_src, last_scan="", age="all",
@@ -294,6 +308,8 @@ def page_html(tab, companies, active_id, company, bs_kpis,
         parts.append(f'<div style="flex:1;min-width:0;background:{P["panel"]};border:1px solid {P["border"]};border-radius:10px;padding:6px 18px 18px">')
         parts.append(_add_manual(active_id))
         parts.append(_filters(active_id, active_src))
+        if scanning:
+            parts.append(_scanning_banner())
         parts.append(_feed(feed_items, classify))
         parts.append('</div>')
         parts.append(f'<div style="flex:0 0 296px;background:{P["panel"]};border:1px solid {P["border"]};border-radius:10px;padding:16px 18px">')

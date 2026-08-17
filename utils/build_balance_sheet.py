@@ -213,7 +213,14 @@ def latest_balance_sheet_kpis(company: dict) -> dict | None:
         _cell("equity_ratio", "יחס הון עצמי", is_percent=True),
     ] if c is not None]
 
-    return {"period_label": latest["period_end"], "cells": cells} if cells else None
+    if not cells:
+        return None
+    return {
+        "period_label": latest["period_end"],
+        "cells": cells,
+        "currency": latest.get("currency", "ILS"),
+        "units": latest.get("units", "thousands"),
+    }
 
 
 # ── Excel export — plain, functional style matching the analyst's own sheet ─
